@@ -81,7 +81,10 @@ Les comptes démo, la boutique et les produits de démonstration ne sont **cré�
 
 ## Paiement mobile money
 
-En mode `PAYMENT_MODE=sandbox` (défaut), les API Wave / Orange / MTN sont **simulées** : le paiement est marqué payé après un court délai. Remplacer `mobileMoney.service.js` par vos intégrations officielles en production.
+- `PAYMENT_MODE=sandbox` (défaut) : paiement **simulé** (marqué payé après un court délai) — idéal pour la démo locale.
+- `PAYMENT_MODE=live` : paiement **réel via Wave** (Checkout API). L'acheteur est redirigé vers Wave, qui notifie le serveur par webhook signé (`Wave-Signature`, HMAC-SHA256) et confirme les fonds.
+  - Configuration requise : `WAVE_API_KEY` et `WAVE_WEBHOOK_SECRET` (portail développeur business.wave.com). Wave ne propose **pas de sandbox** : les clés testées touchent le portefeuille marchand. Voir `backend/.env.example`.
+  - Orange Money et MTN MoMo sont à intégrer (méthode `paymentMethod` non Wave refusée en mode live).
 
 ## Documentation
 

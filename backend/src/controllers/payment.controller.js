@@ -1,11 +1,12 @@
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../lib/apiError.js';
+import { env } from '../config/env.js';
 import {
   initiateMobileMoneyPayment,
   getMobileMoneyPaymentStatus,
-  handleMobileMoneyWebhook,
-  verifyWebhookSignature,
+  handleWaveWebhook,
 } from '../services/mobileMoney.service.js';
+import { verifyWebhookSignature } from '../services/wave.service.js';
 
 export async function initiatePayment(req, res, next) {
   try {
@@ -21,9 +22,14 @@ export async function initiatePayment(req, res, next) {
       throw ApiError.badRequest('Numéro de téléphone invalide');
     }
 
-    const result = await initiateMobileMoneyPayment(order, phone);
+    const baseUrl = env.clientUrl.split(',')[0].trim();
+    const result = await initiateMobileMoneyPayment(order, phone, {
+      successUrl: `${baseUrl}/orders/${order.id}?payment=success`,
+      errorUrl: `${baseUrl}/checkout?payment=error`,
+      cancelUrl: `${baseUrl}/checkout?payment=cancelled`,
+    });
 
-    if (result.mode === 'sandbox' && order.transactionRef !== result.reference) {
+    if (order.transactionRef !== result.reference) {
       await prisma.order.update({
         where: { id: order.id },
         data: { transactionRef: result.reference },
@@ -35,7 +41,11 @@ export async function initiatePayment(req, res, next) {
         reference: result.reference,
         status: result.status,
         mode: result.mode,
-        message: `Paiement ${order.paymentMethod.replace('_', ' ')} initié. Confirmez sur votre téléphone.`,
+        checkoutUrl: result.checkoutUrl || null,
+        message:
+          result.mode === 'wave'
+            ? 'Vous êtes redirigé vers Wave pour confirmer le paiement.'
+            : `Paiement ${order.paymentMethod.replace('_', ' ')} initié. Confirmez sur votre téléphone.`,
       },
     });
   } catch (err) {
@@ -54,11 +64,11 @@ export async function paymentStatus(req, res, next) {
 
 export async function webhook(req, res, next) {
   try {
-    const signature = req.headers['x-momo-signature'] || req.headers['x-signature'];
+    const signature = req.headers['wave-signature'];
     if (!verifyWebhookSignature(req.rawBody, signature)) {
-      throw ApiError.unauthorized('Signature webhook invalide ou manquante');
+      throw ApiError.unauthorized('Signature Wave invalide ou expirée');
     }
-    const result = await handleMobileMoneyWebhook(req.body);
+    const result = await handleWaveWebhook(req.body);
     res.json({ result });
   } catch (err) {
     next(err);

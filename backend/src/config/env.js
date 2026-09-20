@@ -15,7 +15,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 // Hors production, un secret non défini est remplacé par une valeur aléatoire
 // générée à chaque démarrage (jamais un secret prévisible codé en dur).
 const devJwtSecret = process.env.JWT_SECRET || crypto.randomBytes(48).toString('base64');
-const devWebhookSecret = process.env.MOMO_WEBHOOK_SECRET || crypto.randomBytes(48).toString('base64');
+const devWebhookSecret = process.env.WAVE_WEBHOOK_SECRET || crypto.randomBytes(48).toString('base64');
+
+const paymentMode = process.env.PAYMENT_MODE || 'sandbox';
+const livePayments = isProduction && paymentMode === 'live';
 
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -27,10 +30,17 @@ export const env = {
     : process.env.DATABASE_URL || 'postgresql://postgres@localhost:5432/ecommerce',
   jwtSecret: isProduction ? required('JWT_SECRET') : devJwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  momoWebhookSecret: isProduction ? required('MOMO_WEBHOOK_SECRET') : devWebhookSecret,
   commissionRate: parseFloat(process.env.COMMISSION_RATE || '0.05'),
-  paymentMode: process.env.PAYMENT_MODE || 'sandbox',
+  paymentMode,
   paymentSandboxDelayMs: parseInt(process.env.PAYMENT_SANDBOX_DELAY_MS || '3000', 10),
   minPayoutAmount: parseInt(process.env.MIN_PAYOUT_AMOUNT || '5000', 10),
   uploadDir: process.env.UPLOAD_DIR || 'uploads',
+  // Wave (Checkout API — https://docs.wave.com/checkout)
+  waveApiKey: livePayments ? required('WAVE_API_KEY') : process.env.WAVE_API_KEY || '',
+  waveBaseUrl: process.env.WAVE_BASE_URL || 'https://api.wave.com',
+  waveSigningSecret: process.env.WAVE_SIGNING_SECRET || '',
+  waveWebhookSecret: livePayments
+    ? required('WAVE_WEBHOOK_SECRET')
+    : process.env.WAVE_WEBHOOK_SECRET || devWebhookSecret,
+  waveCurrency: process.env.WAVE_CURRENCY || 'XOF',
 };

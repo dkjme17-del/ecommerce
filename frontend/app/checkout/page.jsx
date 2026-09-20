@@ -59,13 +59,20 @@ export default function CheckoutPage() {
         },
         { auth: true },
       );
-      await apiPost(
+      const payment = await apiPost(
         '/payments/momo/initiate',
         { orderId: order.order.id, phone: form.phone },
         { auth: true },
       );
 
-      // Attente de la confirmation (sandbox ~3 s)
+      // Paiement réel (Wave) : redirection vers la page de paiement Wave.
+      if (payment.payment?.checkoutUrl) {
+        setStage('paying');
+        window.location.href = payment.payment.checkoutUrl;
+        return;
+      }
+
+      // Mode sandbox : attente de la confirmation (~3 s)
       const deadline = Date.now() + 30000;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 2000));
