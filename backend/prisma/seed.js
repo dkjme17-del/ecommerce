@@ -1,7 +1,53 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const prisma = new PrismaClient();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const seedTints = {
+  'Électronique': '#0b8767',
+  'Mode': '#a8611a',
+  'Maison & Cuisine': '#b45309',
+  'Beauté & Santé': '#be185d',
+  'Sport & Loisirs': '#0e7490',
+  'Alimentation': '#9a6b00',
+};
+
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+}
+
+function mixHex(a, b, t) {
+  const ca = hexToRgb(a);
+  const cb = hexToRgb(b);
+  const c = ca.map((v, i) => Math.round(v + (cb[i] - v) * t));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function demoImage(name, color) {
+  const letter = (name.trim().charAt(0) || 'K').toUpperCase();
+  const tint = mixHex(color, '#ffffff', 0.3);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" role="img" aria-label="${name}">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${tint}"/>
+      <stop offset="1" stop-color="${color}"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="900" fill="url(#g)"/>
+  <circle cx="800" cy="120" r="290" fill="${color}" opacity="0.35"/>
+  <circle cx="90" cy="840" r="330" fill="${tint}" opacity="0.4"/>
+  <rect x="50" y="50" width="800" height="800" rx="40" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+  <text x="450" y="470" font-family="Georgia, 'Times New Roman', serif" font-size="320" font-weight="700" fill="rgba(255,255,255,0.95)" text-anchor="middle">${letter}</text>
+  <text x="450" y="800" font-family="Georgia, 'Times New Roman', serif" font-size="60" font-weight="600" letter-spacing="16" fill="rgba(255,255,255,0.82)" text-anchor="middle">KIRENE</text>
+</svg>
+`;
+}
 
 const categories = [
   { name: 'Électronique', description: 'Téléphones, ordinateurs, TV', icon: '📱' },
@@ -165,6 +211,9 @@ async function main() {
     },
   ];
 
+  const demoDir = path.join(__dirname, '..', 'uploads', 'demo');
+  fs.mkdirSync(demoDir, { recursive: true });
+
   for (const p of productsData) {
     const slug = `${p.name
       .normalize('NFD')
@@ -173,7 +222,11 @@ async function main() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')}`;
 
-    await prisma.product.upsert({
+    const color = seedTints[p.cat] || '#0b8767';
+    const imgUrl = `/uploads/demo/${slug}.svg`;
+    fs.writeFileSync(path.join(demoDir, `${slug}.svg`), demoImage(p.name, color), 'utf8');
+
+    const created = await prisma.product.upsert({
       where: { slug },
       update: {},
       create: {
@@ -185,13 +238,17 @@ async function main() {
         price: p.price,
         compareAtPrice: p.compareAtPrice,
         stock: p.stock,
-        images: [],
+        images: [imgUrl],
         status: 'ACTIVE',
         enabled: p.stock > 0,
         rating: 4,
         numReviews: 0,
       },
     });
+
+    if (created.images.length === 0) {
+      await prisma.product.update({ where: { id: created.id }, data: { images: [imgUrl] } });
+    }
   }
 
   await prisma.notification.createMany({

@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth-context';
 import { apiGet, apiPatch, apiDelete } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 import { Spinner, EmptyState, FormError } from '../../components/Ui';
+import ProductImage from '../../components/ProductImage';
 
 export default function CartPage() {
   const { user, loading: authLoading } = useAuth();
@@ -77,12 +78,7 @@ export default function CartPage() {
             {cart.items.map((item) => (
               <div key={item.productId} className="card flex items-center gap-4 p-4">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-paper-sunken">
-                  {item.images?.[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.images[0]} alt={item.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-ink-faint">Pas d’image</div>
-                  )}
+                  <ProductImage src={item.images?.[0]} alt={item.name} className="h-full w-full object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <Link href={`/products/${item.slug}`} className="truncate text-sm font-medium text-ink-strong hover:text-brand-600">

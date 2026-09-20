@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatMoney } from '../lib/format';
 import { StarRating } from './StarRating';
+import ProductImage from './ProductImage';
 
 export default function ProductCard({ product }) {
   const image = product.images?.[0];
@@ -11,18 +12,11 @@ export default function ProductCard({ product }) {
       className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-paper shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-500/40 hover:shadow-card-hover"
     >
       <div className="relative aspect-square overflow-hidden bg-paper-sunken">
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-ink-faint">
-            Pas d’image
-          </div>
-        )}
+        <ProductImage
+          src={image}
+          alt={product.name}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
         {product.salesCount > 0 && (
           <span className="absolute left-2 top-2 badge bg-emerald-100 text-emerald-700">
             Populaire

@@ -189,10 +189,29 @@ sudo journalctl -u ecommerce-web -n 50 --no-pager      # logs Next.js
 
 ## 7. Paiements en production
 
-- Passer `PAYMENT_MODE=live` dans le `.env` du backend.
-- Implémenter les kits officiels Wave / Orange Money / MTN MoMo dans `services/mobileMoney.service.js`
-  (actuellement simulés en sandbox : le paiement passe à « payé » après un délai configuré).
-- Exposer le webhook `POST /api/v1/payments/webhook/momo` en HTTPS et enregistrer l'URL chez le fournisseur.
+L'intégration **Wave live** (Checkout API) est implémentée : l'acheteur est redirigé vers Wave,
+qui notifie le serveur par webhook signé (HMAC-SHA256) et ne confirme la commande que lorsque les
+fonds sont réellement réceptionnés.
+
+### Checklist de mise en service Wave
+
+1. Créer un compte marchand **Wave Business** sur business.wave.com et suivre l'onboarding
+   (pièces d'identité + numéro de portable marchand). Wave ne propose **pas de sandbox** : toutes
+   les clés testées touchent le portefeuille marchand — d'où un test initial à petit montant.
+2. Générer une **clé API** (`WAVE_API_KEY`, format `wave_sn_prod_…`) dans le portail développeur.
+3. Exposer le webhook `POST https://votre-domaine/api/v1/payments/webhook/momo` en HTTPS et
+   l'enregistrer chez Wave ; Wave fournit alors un **webhook secret** (`WAVE_WEBHOOK_SECRET`).
+4. Dans `backend/.env` du serveur : `PAYMENT_MODE=live`, `WAVE_API_KEY`, `WAVE_WEBHOOK_SECRET`.
+   Les champs vides sont **obligatoires** (l'app refuse de démarrer sans eux en production).
+5. Redémarrer le service API (`sudo systemctl restart ecommerce-api`) puis tester un paiement
+   réel à petit montant (les URLs de retour sont construites depuis `CLIENT_URL`).
+6. Vérifier les logs (`journalctl -u ecommerce-api -f`) et confirmer que le statut de la commande
+   passe à « Payée » uniquement après retour du webhook.
+
+> En `live`, seuls les moyens réellement intégrés sont proposés aux acheteurs (Wave aujourd'hui ;
+> Orange Money et MTN MoMo affichés « Bientôt »). Les **payouts** vendeurs restent en attente
+> (`PENDING`) en mode live : le transfert réel (Wave Payout à venir) et le versement manuel sont
+> à traiter depuis l'espace admin.
 
 ## 8. Bonnes pratiques de production
 

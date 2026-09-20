@@ -154,27 +154,39 @@ export default function CheckoutPage() {
 
             <div className="card p-5">
               <h2 className="mb-4 font-semibold text-ink-strong">Mode de paiement</h2>
+              {config?.paymentMode === 'live' && (
+                <p className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 dark:bg-brand-500/15">
+                  Paiements réels : seuls les moyens intégrés au lancement sont proposés.
+                </p>
+              )}
               <div className="space-y-3">
-                {METHODS.map((m) => (
-                  <label key={m.value}
-                    className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
-                      form.method === m.value ? 'border-brand-500 bg-brand-50' : 'border-line'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="method"
-                      value={m.value}
-                      checked={form.method === m.value}
-                      onChange={() => setForm({ ...form, method: m.value })}
-                      className="h-4 w-4 text-brand-600"
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold text-ink-strong">{m.label}</span>
-                      <span className="block text-xs text-ink-muted">{m.desc}</span>
-                    </span>
-                  </label>
-                ))}
+                {METHODS.map((m) => {
+                  const disabled = config?.paymentMode === 'live' && m.value !== 'WAVE';
+                  return (
+                    <label key={m.value}
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                        form.method === m.value ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10' : 'border-line'
+                      } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="method"
+                        value={m.value}
+                        checked={form.method === m.value}
+                        disabled={disabled}
+                        onChange={() => setForm({ ...form, method: m.value })}
+                        className="h-4 w-4 text-brand-600"
+                      />
+                      <span className="flex-1">
+                        <span className="block text-sm font-semibold text-ink-strong">{m.label}</span>
+                        <span className="block text-xs text-ink-muted">{m.desc}</span>
+                      </span>
+                      {disabled && (
+                        <span className="badge bg-paper-sunken text-ink-muted">Bientôt</span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>

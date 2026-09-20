@@ -8,6 +8,7 @@ import { apiGet, apiPost } from '../../../lib/api';
 import { formatMoney, formatDate } from '../../../lib/format';
 import { statusLabel, paymentLabel } from '../../../lib/labels';
 import { Spinner, StatusBadge, FormError } from '../../../components/Ui';
+import ProductImage from '../../../components/ProductImage';
 
 const STEPS = ['PENDING', 'PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
 
@@ -103,12 +104,7 @@ export default function OrderDetailPage() {
           {order.items.map((it) => (
             <div key={it.id} className="flex items-center gap-4">
               <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-paper-sunken">
-                {it.product?.images?.[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={it.product.images[0]} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-ink-faint">Pas d’image</div>
-                )}
+                <ProductImage src={it.product?.images?.[0]} alt={it.product?.name} className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <Link href={`/products/${it.product.slug}`} className="truncate text-sm font-medium text-ink-strong hover:text-brand-600">

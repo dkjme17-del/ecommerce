@@ -134,10 +134,19 @@ export async function sellerListProducts(req, res, next) {
   try {
     const products = await prisma.product.findMany({
       where: { storeId: req.store.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
       include: { category: { select: { id: true, name: true } } },
     });
     res.json({ products });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSellerProduct(req, res, next) {
+  try {
+    const product = await getOwnedProduct(req);
+    res.json({ product });
   } catch (err) {
     next(err);
   }
@@ -150,21 +159,27 @@ export async function createProduct(req, res, next) {
     const category = await prisma.category.findUnique({ where: { id: categoryId } });
     if (!category) throw ApiError.badRequest('Catégorie invalide');
 
-    const slug = await generateProductSlug(name, req.store.id);
+    const cleanName = String(name).trim();
+    const cleanStock = Number.isInteger(stock) && stock >= 0 ? stock : 0;
+    const cleanImages = Array.isArray(images) ? images.filter(Boolean).slice(0, 8) : [];
+    const cleanCompare =
+      compareAtPrice && price && compareAtPrice > price ? compareAtPrice : null;
+
+    const slug = await generateProductSlug(cleanName, req.store.id);
 
     const product = await prisma.product.create({
       data: {
         storeId: req.store.id,
         categoryId,
-        name,
+        name: cleanName,
         slug,
-        description,
+        description: description ? String(description).trim() : undefined,
         price,
-        compareAtPrice,
-        stock,
-        images,
+        compareAtPrice: cleanCompare,
+        stock: cleanStock,
+        images: cleanImages,
         status: 'ACTIVE',
-        enabled: stock > 0,
+        enabled: cleanStock > 0,
       },
     });
 
@@ -177,7 +192,7 @@ export async function createProduct(req, res, next) {
 export async function updateProduct(req, res, next) {
   try {
     const product = await getOwnedProduct(req);
-    const { name, description, price, compareAtPrice, stock, categoryId, images } = req.body;
+    const { name, description, price, compareAtPrice, stock, categoryId, images, status } = req.body;
 
     const data = {
       name,
@@ -187,13 +202,42 @@ export async function updateProduct(req, res, next) {
       stock,
       categoryId,
       images,
+      status,
     };
 
-    if (name !== undefined) {
-      data.slug = await generateProductSlug(name, req.store.id);
+    if (name !== undefined && String(name).trim().length > 0) {
+      data.name = String(name).trim();
+      data.slug = await generateProductSlug(data.name, req.store.id);
+    } else {
+      delete data.name;
     }
+
+    if (description !== undefined) {
+      data.description = String(description).trim() || null;
+    }
+
+    if (images !== undefined) {
+      data.images = Array.isArray(images) ? images.filter(Boolean).slice(0, 8) : [];
+    }
+
+    if (compareAtPrice !== undefined) {
+      const base = price !== undefined ? price : product.price;
+      data.compareAtPrice = compareAtPrice && compareAtPrice > base ? compareAtPrice : null;
+    }
+
     if (stock !== undefined) {
-      data.enabled = stock > 0;
+      data.stock = Number.isInteger(stock) && stock >= 0 ? stock : 0;
+      data.enabled = data.stock > 0;
+    }
+
+    if (status !== undefined) {
+      data.status = status;
+      if (status === 'ARCHIVED') {
+        data.enabled = false;
+      } else {
+        const base = data.stock !== undefined ? data.stock : product.stock;
+        data.enabled = base > 0;
+      }
     }
 
     for (const k in data) if (data[k] === undefined) delete data[k];

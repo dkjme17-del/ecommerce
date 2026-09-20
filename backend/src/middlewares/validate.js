@@ -20,9 +20,32 @@ function validateField(value, spec) {
   if (spec.type === 'enum') {
     return spec.values.includes(value) ? null : `doit être parmi ${spec.values.join(', ')}`;
   }
+  if (spec.type === 'array') {
+    if (!Array.isArray(value)) return 'invalide';
+    if (spec.maxItems !== undefined && value.length > spec.maxItems) {
+      return `doit contenir au plus ${spec.maxItems} éléments`;
+    }
+    if (spec.items) {
+      const check = checks[spec.items];
+      if (check && value.some((it) => !check(it))) return 'invalide';
+    }
+    return null;
+  }
   const fn = checks[spec.type];
   if (!fn) return null;
-  return fn(value) ? null : 'invalide';
+  if (!fn(value)) return 'invalide';
+  if (spec.type === 'number' || spec.type === 'integer') {
+    if (spec.min !== undefined && value < spec.min) return `doit être ≥ ${spec.min}`;
+    if (spec.max !== undefined && value > spec.max) return `doit être ≤ ${spec.max}`;
+  } else if (spec.type === 'string') {
+    if (spec.minLength !== undefined && value.trim().length < spec.minLength) {
+      return `doit contenir au moins ${spec.minLength} caractères`;
+    }
+    if (spec.maxLength !== undefined && value.trim().length > spec.maxLength) {
+      return `doit contenir au plus ${spec.maxLength} caractères`;
+    }
+  }
+  return null;
 }
 
 /**

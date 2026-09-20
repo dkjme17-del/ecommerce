@@ -6,6 +6,7 @@ import { StarRating } from '../../../components/StarRating';
 import AddToCart from '../../../components/AddToCart';
 import ReviewForm from '../../../components/ReviewForm';
 import BackButton from '../../../components/BackButton';
+import ProductGallery from '../../../components/ProductGallery';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,38 +33,12 @@ export default async function ProductDetailPage({ params }) {
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
         {/* Galerie */}
-        <div className="overflow-hidden rounded-3xl border border-line bg-paper shadow-card">
-          <div className="relative">
-            {p.images?.[0] ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={p.images[0]}
-                alt={p.name}
-                className="aspect-square w-full object-cover"
-              />
-            ) : (
-              <div className="flex aspect-square w-full items-center justify-center bg-paper-sunken text-ink-faint">
-                Pas d’image
-              </div>
-            )}
-            {isDiscounted && (
-              <span className="absolute left-4 top-4 badge bg-accent-500 text-brand-950">
-                Promo
-              </span>
-            )}
-          </div>
-          {p.images?.length > 1 && (
-            <div className="flex gap-2 p-3">
-              {p.images.map((img, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={img}
-                  alt=""
-                  className="h-16 w-16 rounded-xl border border-line object-cover"
-                />
-              ))}
-            </div>
+        <div className="relative">
+          <ProductGallery images={p.images} name={p.name} />
+          {isDiscounted && (
+            <span className="absolute left-4 top-4 z-10 badge bg-accent-500 text-brand-950">
+              Promo
+            </span>
           )}
         </div>
 

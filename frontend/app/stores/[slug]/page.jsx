@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { serverFetch } from '../../../lib/server';
 import ProductCard from '../../../components/ProductCard';
 import { formatDateTime } from '../../../lib/format';
+import ProductImage from '../../../components/ProductImage';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,12 +23,7 @@ export default async function StorePage({ params }) {
         <div className="px-5 pb-5">
           <div className="-mt-10 flex items-end gap-4">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-paper text-2xl font-bold text-brand-600 shadow">
-              {store.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={store.logo} alt={store.name} className="h-full w-full object-cover" />
-              ) : (
-                store.name.charAt(0)
-              )}
+              {store.logo ? <ProductImage src={store.logo} alt={store.name} className="h-full w-full object-cover" /> : store.name.charAt(0)}
             </div>
             <div>
               <h1 className="text-xl font-bold text-ink-strong">{store.name}</h1>
