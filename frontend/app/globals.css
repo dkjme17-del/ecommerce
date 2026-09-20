@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Design system Kirene
+   - Neutres sémantiques via CSS variables (ink/paper/line)
+   - Mode clair (défaut) + mode sombre (.dark)
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  --paper: #ffffff;
+  --paper-muted: #f7f9f8;
+  --paper-sunken: #edf2ef;
+
+  --ink-strong: #0f1f1a;
+  --ink: #283931;
+  --ink-muted: #5e6f67;
+  --ink-faint: #97a49e;
+
+  --line: #dde5e1;
+  --line-soft: #e9efec;
+  --line-strong: #c7d3cd;
+}
+
+.dark {
+  color-scheme: dark;
+  --paper: #0d1412;
+  --paper-muted: #121a17;
+  --paper-sunken: #18221e;
+
+  --ink-strong: #eef6f2;
+  --ink: #d6e2dc;
+  --ink-muted: #9baca4;
+  --ink-faint: #687971;
+
+  --line: #21302a;
+  --line-soft: #1a2621;
+  --line-strong: #2d3e37;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  ::selection {
+    background-color: rgba(14, 165, 123, 0.28);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand-700, #086e55);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar discrète */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white shadow-card hover:-translate-y-px hover:bg-brand-700 hover:shadow-card-hover active:translate-y-0;
+  }
+  .btn-secondary {
+    @apply btn bg-paper text-ink border border-line-strong hover:border-brand-500 hover:text-brand-700;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-line-strong bg-paper px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-shadow focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-paper shadow-card;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Skeleton shimmer (chargement) */
+  .skeleton {
+    @apply relative overflow-hidden bg-paper-sunken;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+    animation: shimmer 1.6s infinite;
+  }
+  .dark .skeleton::after {
+    background: linear-gradient(90deg, transparent 30%, rgba(255, 255, 255, 0.07) 50%, transparent 70%);
+  }
+}
+
+/* ============================================================
+   Apparition au scroll (.reveal) — gérée par <Reveal> (IO)
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.55s ease-out, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Scroll horizontal des chips sans barre */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   Mode sombre — pastilles colorées (statuts, alertes, active)
+   Teintes éclaircies pour rester au contraste AA sur fond sombre
+   ============================================================ */
+.dark .bg-brand-50 { background-color: rgba(14, 165, 123, 0.14); }
+.dark .text-brand-600 { color: #3fd4a8; }
+.dark .text-brand-700 { color: #58d2a6; }
+
+.dark .bg-emerald-50,
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.15); }
+.dark .text-emerald-600 { color: #34d399; }
+.dark .text-emerald-700 { color: #6ee7b7; }
+.dark .text-emerald-800 { color: #a7f3d0; }
+
+.dark .bg-amber-50,
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.15); }
+.dark .text-amber-700 { color: #fcd34d; }
+
+.dark .bg-red-50,
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.14); }
+.dark .text-red-600 { color: #f87171; }
+.dark .text-red-700 { color: #fca5a5; }
+
+.dark .bg-sky-50,
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.14); }
+.dark .text-sky-700 { color: #7dd3fc; }
+
+.dark .bg-indigo-50,
+.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.14); }
+.dark .text-indigo-700 { color: #a5b4fc; }
+
+.dark .bg-orange-50,
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.14); }
+.dark .text-orange-700 { color: #fdba74; }
+
+.dark .bg-purple-50,
+.dark .bg-purple-100 { background-color: rgba(139, 92, 246, 0.14); }
+.dark .text-purple-600 { color: #c4b5fd; }
+.dark .text-purple-700 { color: #c4b5fd; }
+
+.dark .bg-gray-50 { background-color: var(--paper-muted); }
+
+/* États volet / liens en sombre (variantes hover sur la marque) */
+.dark .hover\:text-brand-600:hover { color: #3fd4a8; }
+.dark .hover\:text-brand-700:hover { color: #58d2a6; }
+.dark .hover\:border-brand-500:hover { border-color: #3fd4a8; }
+.dark .hover\:border-brand-600:hover { border-color: #21b685; }
+.dark .hover\:bg-brand-50:hover { background-color: rgba(14, 165, 123, 0.14); }
+.dark .hover\:bg-brand-600:hover { background-color: #0ea57b; }
+.dark .hover\:bg-brand-700:hover { background-color: #21b685; }
+
+/* ============================================================
+   Accessibilité : réduire les animations si préféré
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,297 @@
+// Prisma schema — Marketplace multivendeurs
+// Les montants monétaires sont stockés en centimes (Int).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum StoreStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  WAVE
+  ORANGE_MONEY
+  MTN_MOMO
+}
+
+enum TxType {
+  PAYMENT
+  COMMISSION
+  PAYOUT
+  REFUND
+}
+
+enum PayoutStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  email        String        @unique
+  phone        String        @unique
+  password     String
+  roles        Role[]
+  status       UserStatus    @default(ACTIVE)
+  avatar       String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  store        Store?
+  orders       Order[]
+  cart         Cart?
+  reviews      Review[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Store {
+  id             String        @id @default(uuid()) @db.Uuid
+  ownerId        String        @unique @db.Uuid
+  name           String
+  slug           String        @unique
+  description    String?
+  logo           String?
+  banner         String?
+  status         StoreStatus   @default(PENDING)
+  commissionRate Float         @default(0.05)
+  balance        Int           @default(0)
+  totalEarned    Int           @default(0)
+  payoutInfo     Json?
+  activatedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  owner      User        @relation(fields: [ownerId], references: [id])
+  products   Product[]
+  orderItems OrderItem[]
+  payouts    Payout[]
+  transactions Transaction[]
+
+  @@index([status])
+  @@index([ownerId])
+}
+
+model Category {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String      @unique
+  slug        String      @unique
+  description String?
+  icon        String?
+  parentId    String?     @db.Uuid
+  createdAt   DateTime    @default(now())
+
+  parent  Category?   @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products  Product[]
+}
+
+model Product {
+  id             String        @id @default(uuid()) @db.Uuid
+  storeId        String        @db.Uuid
+  categoryId     String        @db.Uuid
+  name           String
+  slug           String        @unique
+  description    String?
+  price          Int
+  compareAtPrice Int?
+  stock          Int           @default(0)
+  images         String[]
+  status         ProductStatus @default(DRAFT)
+  enabled        Boolean       @default(true)
+  rating         Float         @default(0)
+  numReviews     Int           @default(0)
+  salesCount     Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  store     Store       @relation(fields: [storeId], references: [id])
+  category  Category    @relation(fields: [categoryId], references: [id])
+  cartItems CartItem[]
+  orderItems OrderItem[]
+  reviews   Review[]
+
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([slug])
+  @@index([status, enabled])
+}
+
+model Cart {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @unique @db.Uuid
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  items CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  cartId    String   @db.Uuid
+  productId String   @db.Uuid
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  number          String        @unique
+  userId          String        @db.Uuid
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  paymentMethod   PaymentMethod
+  subtotal        Int
+  shippingFee     Int           @default(0)
+  total           Int
+  address         Json
+  transactionRef  String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  paidAt          DateTime?
+
+  user    User        @relation(fields: [userId], references: [id])
+  items   OrderItem[]
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id        String @id @default(uuid()) @db.Uuid
+  orderId   String @db.Uuid
+  storeId   String @db.Uuid
+  productId String @db.Uuid
+  quantity  Int
+  unitPrice Int
+  subtotal  Int
+  commission Int
+  netAmount Int
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  store   Store   @relation(fields: [storeId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([storeId])
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Transaction {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String?  @db.Uuid
+  storeId   String?  @db.Uuid
+  type      TxType
+  amount    Int
+  status    String   @default("SUCCESS")
+  reference String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  order Order? @relation(fields: [orderId], references: [id])
+  store Store? @relation(fields: [storeId], references: [id])
+}
+
+model Payout {
+  id        String        @id @default(uuid()) @db.Uuid
+  storeId   String        @db.Uuid
+  amount    Int
+  commission Int
+  status    PayoutStatus  @default(PENDING)
+  method    PaymentMethod
+  reference String?
+  createdAt DateTime      @default(now())
+  processedAt DateTime?
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+  @@index([status])
+}
+
+model Review {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  userId    String   @db.Uuid
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String
+  title     String
+  message   String?
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+}
