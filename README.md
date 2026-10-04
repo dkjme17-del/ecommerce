@@ -1,7 +1,7 @@
-# Marketplace Multivendeurs (type Amazon / Jumia)
+# DKmarket — Marketplace Multivendeurs (type Amazon / Jumia)
 
-Plateforme **marketplace** où plusieurs boutiques vendent leurs produits.
-La plateforme prélève automatiquement une **commission de 5 % sur chaque vente**.
+**DKmarket** est une plateforme **marketplace** où plusieurs boutiques vendent leurs produits.
+La plateforme prélève automatiquement une **commission de 1 % sur chaque vente**.
 
 ## Stack
 
@@ -74,7 +74,7 @@ Les comptes démo, la boutique et les produits de démonstration ne sont **cré�
 
 ## Coin de commission
 
-- Taux : **5 %** (configurable via `COMMISSION_RATE`).
+- Taux : **1 %** (configurable via `COMMISSION_RATE`).
 - Calculé à la commande, ligne par ligne (`orderItem.commission`).
 - Le solde du vendeur (Store.balance) reçoit net (`prix - commission`) dès le paiement.
 - Les **payouts** vers le mobile money du vendeur sont déclenchés automatiquement au-dessus d'un seuil (`MIN_PAYOUT_AMOUNT`) ou manuellement par l'admin.

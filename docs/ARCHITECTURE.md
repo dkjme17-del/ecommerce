@@ -31,7 +31,7 @@
 - **API REST** indépendante du frontend : le frontend Next.js appelle le backend Express via un proxy /api.
 - **Rôles** : `ADMIN`, `SELLER`, `CUSTOMER` — protégés par middleware JWT + vérification de rôle.
 - **Dissociation client / vendeur** : un utilisateur peut avoir deux types de compte. Pour rester simple, un compte peut être `CUSTOMER` **et** `SELLER` simultanément (champs de rôle multiples, voir `User.roles`).
-- **Commission 5 %** centralisée dans `services/commission.service.js` pour éviter les calculs dispersés. Les montants sont stockés en **centimes (integer)** pour éviter les erreurs d'arrondi.
+- **Commission 1 %** centralisée dans `services/commission.service.js` pour éviter les calculs dispersés. Les montants sont stockés en **centimes (integer)** pour éviter les erreurs d'arrondi.
 - **Payouts** : le solde du vendeur est crédité à chaque vente payée (net de commission). Un service d'encaissement verse le solde vers le compte mobile money du vendeur lorsqu'un seuil est atteint.
 
 ## Frontend (Next.js App Router)

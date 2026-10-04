@@ -1,4 +1,4 @@
-# Kirene — Design System & Choix d'interface
+# DKmarket — Design System & Choix d'interface
 
 Refonte complète de l'interface du marketplace. Ce document explique les choix structurants
 fait par contradiction directe avec "l'aspect template IA" : pas de dégradés violets omniprésents,
@@ -6,8 +6,8 @@ ni de cartes interchangeables, ni d'emojis, ni de gris clair illisible.
 
 ## 1. Identité
 
-- **Nom** : Kirene — mot wolof évoquant le bien-être et l'accueil. Marque locale, chaleureuse, premium.
-- **Positionnement** : marketplace sénégalais mobile-first reliant boutiques locales et acheteurs.
+- **Nom** : DKmarket — « DK » (initiales du fondateur) + « market », contraction directe de l'activité.
+- **Positionnement** : marketplace mobile-first reliant boutiques locales et acheteurs.
 
 ## 2. Palette
 
@@ -62,7 +62,7 @@ sont claircies dans `globals.css` pour garder un contraste AA et lisibles sur fo
 
 - `tailwind.config.ts` + `app/globals.css` (design system complet, clair + sombre).
 - `app/layout.jsx` (fonts, ThemeProvider, script anti-FOUC) ; `lib/theme.jsx`.
-- `components/Navbar.jsx` (marque Kirene, recherche, toggle thème, menu mobile),
+- `components/Navbar.jsx` (marque DKmarket, recherche, toggle thème, menu mobile),
   `Footer.jsx`, `ProductCard.jsx`, `CategoryIcon.jsx` (SVG par catégorie, emojis du seed remplacés),
   `Reveal.jsx`, `Ui.jsx` (skeletons + EmptyState iconé).
 - Pages refondues : accueil (hero, catégories, produits, CTA vendeur), `products` (filtres,

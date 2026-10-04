@@ -14,7 +14,7 @@ et vendeur (`roles` est un tableau d'enum).
 | id           | String (uuid) |                               |
 | name         | String        |                               |
 | email        | String        | unique, lowercase             |
-| phone        | String        | unique, ex. `+221771234567`   |
+| phone        | String        | unique, ex. `0600000001`   |
 | password     | String        | hash bcrypt                   |
 | roles        | Role[]        | CUSTOMER, SELLER, ADMIN       |
 | status       | String        | ACTIVE, SUSPENDED             |
@@ -30,7 +30,7 @@ et vendeur (`roles` est un tableau d'enum).
 | description      | String? |                                       |
 | logo / banner    | String? |                                       |
 | status           | String  | PENDING → APPROVED / REJECTED / SUSPENDED |
-| commissionRate   | Float   | 0.05                                       |
+| commissionRate   | Float   | 0.01                                       |
 | balance          | Int     | solde net à payer (centimes)         |
 | totalEarned      | Int     | cumul net                             |
 | payoutInfo       | Json?   | opérateur + numéro mobile money      |
@@ -85,7 +85,7 @@ Panier par utilisateur, `CartItem.productId + cartId` unique.
 | quantity    | Int    |                                   |
 | unitPrice   | Int    | centimes                          |
 | subtotal    | Int    | quantity × unitPrice              |
-| commission  | Int    | 5 % de subtotal (centimes)        |
+| commission  | Int    | 1 % de subtotal (centimes)        |
 | netAmount   | Int    | subtotal - commission             |
 
 ### Transaction
