@@ -33,7 +33,7 @@ export async function register(req, res, next) {
       },
     });
 
-    await createNotification(user.id, 'Bienvenue !', `Votre compte marketplace est créé.`);
+    await createNotification(user.id, 'Bienvenue !', `Votre compte DKmarket est créé.`);
 
     const token = signToken({ sub: user.id, roles: user.roles });
     res.status(201).json({ token, user: publicUser(user) });

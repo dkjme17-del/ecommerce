@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   stats,
   sales,
+  commissions,
   listStores,
   validateStore,
   listUsers,
@@ -20,6 +21,7 @@ router.use(authenticate, requireRoles('ADMIN'));
 
 router.get('/stats', stats);
 router.get('/sales', sales);
+router.get('/commissions', commissions);
 router.get('/stores', listStores);
 router.patch('/stores/:id/validate', validateStore);
 router.get('/users', listUsers);

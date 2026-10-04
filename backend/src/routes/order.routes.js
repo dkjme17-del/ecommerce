@@ -16,7 +16,7 @@ router.post(
   '/',
   validate({
     body: {
-      paymentMethod: { type: 'enum', values: ['WAVE', 'ORANGE_MONEY', 'MTN_MOMO'] },
+      paymentMethod: { type: 'enum', values: ['WAVE', 'ORANGE_MONEY', 'MTN_MOMO', 'GENIUSPAY'] },
       shippingAddress: { optional: true },
       items: { optional: true },
       shippingFee: { optional: true, type: 'integer' },

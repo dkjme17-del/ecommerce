@@ -9,6 +9,7 @@ import { env } from './config/env.js';
 import { uploadDir } from './middlewares/upload.js';
 import apiRoutes from './routes/index.js';
 import { notFound, errorHandler } from './middlewares/error.js';
+import { prisma } from './lib/prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,12 +51,33 @@ app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 app.use(
   '/uploads',
   express.static(uploadDir, {
+    fallthrough: true,
     setHeaders: (res) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Security-Policy', "default-src 'none'");
     },
   }),
 );
+
+// Fichiers persistés en base (survivent aux redémarrages des conteneurs) ;
+// le repère statique ci-dessus sert de repli pour les fichiers locaux en dev.
+app.get('/uploads/:filename', async (req, res, next) => {
+  try {
+    const media = await prisma.media.findUnique({
+      where: { filename: req.params.filename },
+    });
+    if (!media) {
+      return res.status(404).json({ error: { message: 'Fichier introuvable' } });
+    }
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    res.setHeader('Content-Type', media.mime);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(media.data);
+  } catch (err) {
+    next(err);
+  }
+});
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -78,7 +100,7 @@ app.use('/api/v1/auth', authLimiter);
 app.use('/api/v1/payments/webhook', rateLimit({ windowMs: 15 * 60 * 1000, max: 500 }));
 
 app.get('/', (_req, res) =>
-  res.json({ name: 'Marketplace API', docs: '/api/v1/status' }),
+  res.json({ name: 'DKmarket API', docs: '/api/v1/status' }),
 );
 
 app.use('/api/v1', apiRoutes);

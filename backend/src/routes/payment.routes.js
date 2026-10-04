@@ -3,6 +3,7 @@ import {
   initiatePayment,
   paymentStatus,
   webhook,
+  geniuspayWebhook,
 } from '../controllers/payment.controller.js';
 import { authenticate } from '../middlewares/auth.js';
 import { validate } from '../middlewares/validate.js';
@@ -22,5 +23,6 @@ router.post(
 );
 router.get('/momo/status/:reference', authenticate, paymentStatus);
 router.post('/webhook/momo', webhook);
+router.post('/webhook/geniuspay', geniuspayWebhook);
 
 export default router;

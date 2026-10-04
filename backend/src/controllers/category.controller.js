@@ -6,9 +6,23 @@ export async function listCategories(req, res, next) {
   try {
     const categories = await prisma.category.findMany({
       orderBy: { name: 'asc' },
-      include: { _count: { select: { products: true } } },
     });
-    res.json({ categories });
+
+    // Seuls les produits réellement visibles dans la vitrine sont comptés
+    // (ACTIVE + activé + boutique approuvée), pour correspondre au catalogue.
+    const counts = await prisma.product.groupBy({
+      by: ['categoryId'],
+      where: { status: 'ACTIVE', enabled: true, store: { status: 'APPROVED' } },
+      _count: { _all: true },
+    });
+    const countByCategory = new Map(counts.map((c) => [c.categoryId, c._count._all]));
+
+    res.json({
+      categories: categories.map((c) => ({
+        ...c,
+        _count: { products: countByCategory.get(c.id) ?? 0 },
+      })),
+    });
   } catch (err) {
     next(err);
   }

@@ -4,6 +4,9 @@ node_modules
 .env.*
 uploads
 npm-debug.log
+*.log
 Dockerfile
 .dockerignore
 docs
+prod-dump.json
+*.sql

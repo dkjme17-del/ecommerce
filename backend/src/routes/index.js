@@ -16,7 +16,7 @@ import uploadRoutes from './upload.routes.js';
 const router = Router();
 
 router.get('/status', (_req, res) =>
-  res.json({ status: 'ok', service: 'marketplace-api', time: new Date().toISOString() }),
+  res.json({ status: 'ok', service: 'dkmarket-api', time: new Date().toISOString() }),
 );
 
 router.get('/config', (_req, res) =>
@@ -25,6 +25,7 @@ router.get('/config', (_req, res) =>
       commissionRate: env.commissionRate,
       minPayoutAmount: env.minPayoutAmount,
       paymentMode: env.paymentMode,
+      paymentProvider: env.paymentProvider,
     },
   }),
 );

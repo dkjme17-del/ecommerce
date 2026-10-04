@@ -87,6 +87,58 @@ export async function sales(req, res, next) {
   }
 }
 
+export async function commissions(_req, res, next) {
+  try {
+    const txns = await prisma.transaction.findMany({
+      where: { type: { in: ['PAYMENT', 'COMMISSION'] } },
+      orderBy: { createdAt: 'desc' },
+      take: 600,
+      include: {
+        order: {
+          select: {
+            id: true,
+            number: true,
+            status: true,
+            createdAt: true,
+            transactionRef: true,
+            user: { select: { name: true } },
+          },
+        },
+        store: { select: { id: true, name: true } },
+      },
+    });
+
+    const rows = new Map();
+    for (const t of txns) {
+      const key = `${t.orderId}|${t.storeId}`;
+      const row = rows.get(key) || {
+        orderId: t.orderId,
+        orderNumber: t.order?.number,
+        client: t.order?.user?.name,
+        store: t.store?.name,
+        orderStatus: t.order?.status,
+        reference: t.order?.transactionRef,
+        gross: 0,
+        commission: 0,
+        net: 0,
+        deliveredAt: t.createdAt,
+      };
+      if (t.type === 'PAYMENT') row.net += t.amount;
+      else row.commission += t.amount;
+      row.gross = row.net + row.commission;
+      rows.set(key, row);
+    }
+
+    const commissions = [...rows.values()]
+      .filter((r) => r.commission > 0)
+      .sort((a, b) => new Date(b.deliveredAt) - new Date(a.deliveredAt));
+
+    res.json({ total: commissions.reduce((s, r) => s + r.commission, 0), commissions });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listStores(req, res, next) {
   try {
     const { status } = req.query;
@@ -257,7 +309,7 @@ export async function pendingPayouts(_req, res, next) {
 
 export async function processOnePayout(req, res, next) {
   try {
-    const payout = await processPayout(req.params.id);
+    const payout = await processPayout(req.params.id, req.body?.reference);
     res.json({ payout });
   } catch (err) {
     next(err);
@@ -292,7 +344,7 @@ async function createPayoutFor(storeId) {
       commission: 0,
       method: store.payoutInfo?.method || 'WAVE',
     },
-  });
-  await processPayout(payout.id);
-  return payout;
-}
+    });
+    if (env.paymentMode === 'sandbox') await processPayout(payout.id);
+    return payout;
+  }

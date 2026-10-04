@@ -30,7 +30,7 @@ function mixHex(a, b, t) {
 }
 
 function demoImage(name, color) {
-  const letter = (name.trim().charAt(0) || 'K').toUpperCase();
+  const letter = (name.trim().charAt(0) || 'D').toUpperCase();
   const tint = mixHex(color, '#ffffff', 0.3);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" role="img" aria-label="${name}">
   <defs>
@@ -44,7 +44,7 @@ function demoImage(name, color) {
   <circle cx="90" cy="840" r="330" fill="${tint}" opacity="0.4"/>
   <rect x="50" y="50" width="800" height="800" rx="40" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
   <text x="450" y="470" font-family="Georgia, 'Times New Roman', serif" font-size="320" font-weight="700" fill="rgba(255,255,255,0.95)" text-anchor="middle">${letter}</text>
-  <text x="450" y="800" font-family="Georgia, 'Times New Roman', serif" font-size="60" font-weight="600" letter-spacing="16" fill="rgba(255,255,255,0.82)" text-anchor="middle">KIRENE</text>
+  <text x="450" y="800" font-family="Georgia, 'Times New Roman', serif" font-size="60" font-weight="600" letter-spacing="16" fill="rgba(255,255,255,0.82)" text-anchor="middle">DKMARKET</text>
 </svg>
 `;
 }
@@ -111,21 +111,21 @@ async function main() {
   const admin = await makeUser(
     'Administrateur',
     'admin@demo.com',
-    '+221770000001',
+    '0600000001',
     'demo123',
     ['ADMIN'],
   );
   const seller = await makeUser(
     'Boutique Alpha',
     'seller@demo.com',
-    '+221770000002',
+    '0600000002',
     'demo123',
     ['CUSTOMER', 'SELLER'],
   );
   const client = await makeUser(
     'Client Demo',
     'client@demo.com',
-    '+221770000003',
+    '0600000003',
     'demo123',
     ['CUSTOMER'],
   );
@@ -140,7 +140,7 @@ async function main() {
         description: 'Électronique et accessoires de qualité.',
         status: 'APPROVED',
         activatedAt: new Date(),
-        payoutInfo: { method: 'ORANGE_MONEY', phone: '+221770000002' },
+        payoutInfo: { method: 'ORANGE_MONEY', phone: '0600000002' },
       },
     });
   }

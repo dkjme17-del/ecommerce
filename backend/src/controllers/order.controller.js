@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../lib/apiError.js';
 import { computeOrderItem } from '../services/commission.service.js';
 import { createNotification } from '../services/notification.service.js';
+import { confirmSandboxOrderIfDue } from '../services/mobileMoney.service.js';
 
 export async function createOrder(req, res, next) {
   try {
@@ -10,7 +11,7 @@ export async function createOrder(req, res, next) {
     if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.address) {
       throw ApiError.badRequest('Adresse de livraison invalide');
     }
-    if (!['WAVE', 'ORANGE_MONEY', 'MTN_MOMO'].includes(paymentMethod)) {
+    if (!['WAVE', 'ORANGE_MONEY', 'MTN_MOMO', 'GENIUSPAY'].includes(paymentMethod)) {
       throw ApiError.badRequest('Méthode de paiement invalide');
     }
 
@@ -112,6 +113,16 @@ export async function myOrders(req, res, next) {
       take: limit,
       include: { items: { include: { product: { select: { id: true, name: true, slug: true, images: true } }, store: { select: { id: true, name: true, slug: true } } } } },
     });
+
+    // Sandbox : on confirme les paiements en attente (survit aux redémarrages).
+    for (const o of orders) {
+      if (await confirmSandboxOrderIfDue(o)) {
+        o.status = 'PAID';
+        o.paymentStatus = 'PAID';
+        o.paidAt = new Date();
+      }
+    }
+
     res.json({ orders });
   } catch (err) {
     next(err);
@@ -120,21 +131,28 @@ export async function myOrders(req, res, next) {
 
 export async function getOrder(req, res, next) {
   try {
-    const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
-      include: {
-        items: {
-          include: {
-            product: { select: { id: true, name: true, slug: true, images: true } },
-            store: { select: { id: true, name: true, slug: true } },
-          },
+    const include = {
+      items: {
+        include: {
+          product: { select: { id: true, name: true, slug: true, images: true } },
+          store: { select: { id: true, name: true, slug: true } },
         },
       },
+    };
+    let order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include,
     });
 
     if (!order) throw ApiError.notFound('Commande introuvable');
     if (order.userId !== req.user.id && !req.user.roles.includes('ADMIN')) {
       throw ApiError.forbidden('Accès refusé');
+    }
+
+    // Sandbox : confirmation paresseuse des paiements en attente (robuste aux
+    // redémarrages et aux coups de froid de la base).
+    if (await confirmSandboxOrderIfDue(order)) {
+      order = await prisma.order.findUnique({ where: { id: order.id }, include });
     }
 
     res.json({ order });

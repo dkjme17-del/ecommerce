@@ -1,0 +1,1 @@
+ALTER TABLE "OrderItem" ADD COLUMN "settledAt" TIMESTAMP(3);

@@ -1,7 +1,7 @@
 {
-  "name": "marketplace-api",
+  "name": "dkmarket-api",
   "version": "1.0.0",
-  "description": "API REST du marketplace multivendeurs (commission 5%)",
+  "description": "API REST du marketplace multivendeurs DKmarket (commission 1%)",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -25,7 +25,8 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "multer": "^2.0.1"
+    "multer": "^2.0.1",
+    "nodemailer": "^10.0.10"
   },
   "devDependencies": {
     "prisma": "^5.22.0"

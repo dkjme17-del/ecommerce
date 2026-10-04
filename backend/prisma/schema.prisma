@@ -1,8 +1,9 @@
-// Prisma schema — Marketplace multivendeurs
+// Prisma schema — DKmarket (marketplace multivendeurs)
 // Les montants monétaires sont stockés en centimes (Int).
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -56,6 +57,7 @@ enum PaymentMethod {
   WAVE
   ORANGE_MONEY
   MTN_MOMO
+  GENIUSPAY
 }
 
 enum TxType {
@@ -102,7 +104,7 @@ model Store {
   logo           String?
   banner         String?
   status         StoreStatus   @default(PENDING)
-  commissionRate Float         @default(0.05)
+  commissionRate Float         @default(0.01)
   balance        Int           @default(0)
   totalEarned    Int           @default(0)
   payoutInfo     Json?
@@ -165,6 +167,14 @@ model Product {
   @@index([status, enabled])
 }
 
+model Media {
+  filename  String   @id
+  mime      String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+}
+
 model Cart {
   id        String      @id @default(uuid()) @db.Uuid
   userId    String      @unique @db.Uuid
@@ -224,6 +234,7 @@ model OrderItem {
   commission Int
   netAmount Int
   status    OrderStatus @default(PENDING)
+  settledAt DateTime?
   createdAt DateTime    @default(now())
 
   order   Order   @relation(fields: [orderId], references: [id])

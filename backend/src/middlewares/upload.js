@@ -1,29 +1,20 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { env } from '../config/env.js';
 import { ApiError } from '../lib/apiError.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = path.resolve(__dirname, '..', '..', env.uploadDir);
+export const uploadDir = path.resolve(__dirname, '..', '..', env.uploadDir);
 
-await fs.mkdir(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, _file, cb) => {
-    // Pas d'extension issue du nom d'origine : elle est attribuée après
-    // inspection du contenu réel (magic bytes) dans validateUploadedImage.
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, unique);
-  },
-});
+// Les fichiers sont reçus en mémoire puis persistés en base (voir
+// routes/upload.routes.js) : le disque des conteneurs étant éphémère.
+const storage = multer.memoryStorage();
 
 const fileFilter = (_req, file, cb) => {
   const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
   if (!allowed.includes(file.mimetype)) {
-    return cb(new ApiError(400, 'Format d’image non supporté'));
+    return cb(new ApiError(400, "Format d'image non supporté"));
   }
   cb(null, true);
 };
@@ -65,25 +56,18 @@ const MAGIC = {
 
 /**
  * Vérifie que le contenu d'un fichier uploadé est réellement une image
- * (contrôle des magic bytes) et lui attribue la bonne extension.
- * En cas d'échec, le fichier est supprimé du disque.
+ * (contrôle des magic bytes) et lui attribue le bon nom/extension.
  */
 async function assertUploadedImage(file) {
-  try {
-    const buf = await fs.readFile(file.path);
-    const type = Object.values(MAGIC).find((t) => t.match(buf));
-    if (!type) {
-      throw new ApiError(400, 'Le fichier n’est pas une image valide');
-    }
-    const finalPath = `${file.path}${type.ext}`;
-    await fs.rename(file.path, finalPath);
-    file.filename = path.basename(finalPath);
-    file.mimetype = type.mime;
-    return file;
-  } catch (err) {
-    await fs.unlink(file.path).catch(() => {});
-    throw err;
+  const buf = file.buffer;
+  const type = Object.values(MAGIC).find((t) => t.match(buf));
+  if (!type) {
+    throw new ApiError(400, "Le fichier n'est pas une image valide");
   }
+  file.filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${type.ext}`;
+  file.mimetype = type.mime;
+  file.size = buf.length;
+  return file;
 }
 
 /**
@@ -101,5 +85,3 @@ export function validateUploadedImages(single = true) {
     }
   };
 }
-
-export { uploadDir };

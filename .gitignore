@@ -17,6 +17,11 @@ build/
 
 # Uploads
 backend/uploads/*
+frontend/public/uploads/
+
+# Dump de base de données (données de prod, jamais versionnées)
+backend/prod-dump.json
+backend/prisma/*.json
 
 # Logs
 *.log

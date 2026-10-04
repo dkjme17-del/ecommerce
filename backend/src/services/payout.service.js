@@ -19,13 +19,19 @@ export async function processPayoutsForStore(storeId) {
   if (store.balance < env.minPayoutAmount) return;
   if (!store.payoutInfo || !store.payoutInfo.method) return;
 
+  // Évite les payouts en doublon : un seul payout en attente par boutique.
+  const existing = await prisma.payout.findFirst({
+    where: { storeId, status: 'PENDING' },
+  });
+  if (existing) return;
+
   const amount = store.balance;
   const payout = await prisma.payout.create({
     data: {
       storeId,
       amount,
       commission: 0,
-      status: env.paymentMode === 'sandbox' ? 'PENDING' : 'PENDING',
+      status: 'PENDING',
       method: store.payoutInfo.method,
     },
   });
@@ -43,10 +49,12 @@ export async function processPayoutsForStore(storeId) {
 }
 
 /**
- * Traite un payout (appelé par l'admin ou automatiquement en sandbox).
- * En sandbox le transfert est simulé : SUCCESS immédiat.
+ * Traite un payout.
+ * - Sandbox : transfert simulé, SUCCESS immédiat.
+ * - Live : l'admin effectue le transfert réel (Wave/Orange/…), puis confirme
+ *   ici en fournissant la référence du transfert. Le solde est alors remis à zéro.
  */
-export async function processPayout(payoutId) {
+export async function processPayout(payoutId, reference) {
   const payout = await prisma.payout.findUnique({
     where: { id: payoutId },
     include: { store: { include: { owner: true } } },
@@ -55,34 +63,34 @@ export async function processPayout(payoutId) {
   if (!payout) throw ApiError.notFound('Payout introuvable');
   if (payout.status !== 'PENDING') return payout;
 
-  if (env.paymentMode === 'sandbox') {
-    // Simulation d'un transfert mobile money réussi
-    const reference = `PAY-${Date.now()}`;
-    const updated = await prisma.$transaction([
-      prisma.payout.update({
-        where: { id: payout.id },
-        data: {
-          status: 'SUCCESS',
-          reference,
-          processedAt: new Date(),
-        },
-      }),
-      prisma.store.update({
-        where: { id: payout.storeId },
-        data: { balance: 0 },
-      }),
-    ]);
-
-    await createNotification(
-      payout.store.ownerId,
-      'Payout effectué',
-      `Votre versement de ${new Intl.NumberFormat('fr-FR').format(payout.amount)} centimes a été envoyé avec succès (réf ${reference}).`,
-      { payoutId: payout.id },
+  if (env.paymentMode === 'live' && !reference) {
+    throw ApiError.badRequest(
+      'Mode live : indiquez la référence du transfert effectué (Wave/Orange/…) pour confirmer le payout.',
     );
-
-    return updated[0];
   }
 
-  // Mode live : à connecter à l'API du fournisseur
-  throw ApiError.badRequest('Payout en mode live non implémenté');
+  const finalRef = reference || `PAY-${Date.now()}`;
+  const updated = await prisma.$transaction([
+    prisma.payout.update({
+      where: { id: payout.id },
+      data: {
+        status: 'SUCCESS',
+        reference: finalRef,
+        processedAt: new Date(),
+      },
+    }),
+    prisma.store.update({
+      where: { id: payout.storeId },
+      data: { balance: 0 },
+    }),
+  ]);
+
+  await createNotification(
+    payout.store.ownerId,
+    'Payout effectué',
+    `Votre versement de ${new Intl.NumberFormat('fr-FR').format(payout.amount)} centimes a été envoyé avec succès (réf ${finalRef}).`,
+    { payoutId: payout.id },
+  );
+
+  return updated[0];
 }

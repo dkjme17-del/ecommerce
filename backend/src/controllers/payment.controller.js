@@ -7,6 +7,10 @@ import {
   handleWaveWebhook,
 } from '../services/mobileMoney.service.js';
 import { verifyWebhookSignature } from '../services/wave.service.js';
+import {
+  verifyWebhookSignature as geniuspayVerify,
+  handleGeniusPayWebhook,
+} from '../services/geniuspay.service.js';
 
 export async function initiatePayment(req, res, next) {
   try {
@@ -43,9 +47,11 @@ export async function initiatePayment(req, res, next) {
         mode: result.mode,
         checkoutUrl: result.checkoutUrl || null,
         message:
-          result.mode === 'wave'
-            ? 'Vous êtes redirigé vers Wave pour confirmer le paiement.'
-            : `Paiement ${order.paymentMethod.replace('_', ' ')} initié. Confirmez sur votre téléphone.`,
+          result.mode === 'geniuspay'
+            ? 'Vous êtes redirigé vers le paiement sécurisé (Wave, Orange Money, MTN MoMo, Moov ou carte).'
+            : result.mode === 'wave'
+              ? 'Vous êtes redirigé vers Wave pour confirmer le paiement.'
+              : `Paiement ${order.paymentMethod.replace('_', ' ')} initié. Confirmez sur votre téléphone.`,
       },
     });
   } catch (err) {
@@ -69,6 +75,20 @@ export async function webhook(req, res, next) {
       throw ApiError.unauthorized('Signature Wave invalide ou expirée');
     }
     const result = await handleWaveWebhook(req.body);
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function geniuspayWebhook(req, res, next) {
+  try {
+    const signature = req.headers['x-webhook-signature'];
+    const timestamp = req.headers['x-webhook-timestamp'];
+    if (!geniuspayVerify(req.rawBody, signature, timestamp)) {
+      throw ApiError.unauthorized('Signature webhook GeniusPay invalide ou expirée');
+    }
+    const result = await handleGeniusPayWebhook(req.body);
     res.json({ result });
   } catch (err) {
     next(err);

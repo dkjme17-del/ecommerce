@@ -1,19 +1,24 @@
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../lib/apiError.js';
 import { createNotification } from '../services/notification.service.js';
+import { settleDeliveredItem } from '../services/settlement.service.js';
 
 const ITEM_STATUS_FLOW = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
 
 export async function stats(req, res, next) {
   try {
     const store = req.store;
-    const [salesCount, productsCount, pendingPayouts, lowStock] = await Promise.all([
+    const [salesCount, productsCount, pendingPayouts, lowStock, pendingAgg] = await Promise.all([
       prisma.orderItem.count({
         where: { storeId: store.id, status: { in: ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'] } },
       }),
       prisma.product.count({ where: { storeId: store.id, status: 'ACTIVE' } }),
       prisma.payout.count({ where: { storeId: store.id, status: 'PENDING' } }),
       prisma.product.count({ where: { storeId: store.id, stock: { lt: 5 }, status: 'ACTIVE' } }),
+      prisma.orderItem.aggregate({
+        where: { storeId: store.id, status: { not: 'DELIVERED' }, order: { paymentStatus: 'PAID' } },
+        _sum: { netAmount: true },
+      }),
     ]);
 
     const recentSales = await prisma.orderItem.findMany({
@@ -30,6 +35,7 @@ export async function stats(req, res, next) {
       stats: {
         revenue: store.totalEarned,
         balance: store.balance,
+        pendingBalance: pendingAgg._sum.netAmount || 0,
         salesCount,
         productsCount,
         pendingPayouts,
@@ -59,7 +65,9 @@ export async function orders(req, res, next) {
             number: true,
             createdAt: true,
             paymentStatus: true,
-            address: true,
+              paymentMethod: true,
+              transactionRef: true,
+              address: true,
             user: { select: { id: true, name: true, phone: true } },
           },
         },
@@ -82,8 +90,12 @@ export async function updateOrderItemStatus(req, res, next) {
     if (!item) throw ApiError.notFound('Ligne de commande introuvable');
 
     const { status } = req.body;
-    if (!ITEM_STATUS_FLOW.includes(status)) {
+    const idx = ITEM_STATUS_FLOW.indexOf(status);
+    if (idx === -1) {
       throw ApiError.badRequest('Statut invalide');
+    }
+    if (idx !== ITEM_STATUS_FLOW.indexOf(item.status) + 1) {
+      throw ApiError.badRequest('Transition de statut invalide');
     }
     if (item.order.paymentStatus !== 'PAID') {
       throw ApiError.badRequest('La commande n’est pas payée');
@@ -95,6 +107,7 @@ export async function updateOrderItemStatus(req, res, next) {
     });
 
     if (status === 'DELIVERED') {
+      await settleDeliveredItem(item.id);
       await createNotification(
         item.order.userId,
         'Colis livré',

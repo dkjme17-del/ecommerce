@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 /**
  * Calcule la commission plateforme sur un montant.
  * @param {number} amountCents montant en centimes
- * @param {number} [rate] taux (défaut COMMISSION_RATE, 5 %)
+ * @param {number} [rate] taux (défaut COMMISSION_RATE, 1 %)
  * @returns {{commission: number, net: number}} commission et net en centimes
  */
 export function splitCommission(amountCents, rate = env.commissionRate) {
