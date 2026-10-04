@@ -94,32 +94,53 @@ scp frontend/.env.local ubuntu@3.90.18.137:/home/ubuntu/projet_ecommerce/fronten
 > `backend/.env` n'est **pas** versionné : il doit être copié à la main, avec
 > `DATABASE_URL` (Neon), `JWT_SECRET` long et `CLIENT_URL=http://3.90.18.137`.
 
-## 4. Démarrer la stack
+## 4. Sauvegarder les images produits AVANT tout `up`
+
+**L'ordre est critique.** `docker compose up -d --build` **recrée** le conteneur
+backend : son ancienne couche inscriptible, qui contient les photos déjà
+envoyées par les vendeurs, est supprimée à ce moment-là. Le volume, lui, démarre
+vide. Toute photo non copiée avant cette étape est **définitivement perdue**.
+
+```bash
+cd ~/projet_ecommerce
+docker compose ps          # etat actuel : les uploads sont dans le conteneur
+
+# A. Si les photos sont encore dans le conteneur backend
+bash deploy/migrate-uploads.sh
+
+# B. Si le conteneur a deja ete recree (photos perdues) mais que le dossier
+#    backend/uploads existe sur l'hote ou sur ta machine
+bash deploy/restore-uploads.sh /chemin/vers/dossier/uploads
+```
+
+Puis, depuis la machine qui a les fichiers :
+
+```bash
+scp -r backend/uploads ubuntu@3.90.18.137:/home/ubuntu/uploads-restore
+ssh ubuntu@3.90.18.137 'sudo bash ~/projet_ecommerce/deploy/restore-uploads.sh /home/ubuntu/uploads-restore'
+```
+
+## 5. Démarrer la stack
 
 ```bash
 cd ~/projet_ecommerce
 docker compose up -d --build
 
 docker compose ps           # les deux services doivent être "healthy"
-docker compose logs -f api
+docker compose logs -f backend
 ```
 
-Le `CMD` du backend enchaîne `prisma migrate deploy` puis le serveur : les
-migrations sont donc appliquées automatiquement à chaque démarrage.
+Le `CMD` du backend enchaîne `prisma migrate deploy` (avec 5 tentatives) puis le
+serveur : les migrations sont donc appliquées automatiquement à chaque démarrage.
 
-## 5. Une seule fois : récupérer les images déjà envoyées
-
-Si des vendeurs ont déjà envoyé des photos **avant** la mise en place du volume,
-elles résident dans la couche inscriptible du conteneur. Il faut les copier
-dans le volume avant de le recréer :
+**Contrôle immédiat :**
 
 ```bash
-bash deploy/migrate-uploads.sh
+curl -sI http://127.0.0.1/uploads/<un-fichier-de-la-base>.jpg   # doit repondre 200
 ```
 
-Le script compare le nombre de fichiers avant/après et refuse de continuer si
-la copie est incomplète. Les fichiers restent aussi dans `/tmp/dkmarket-uploads-seed`
-en secours.
+Pour lister les fichiers attendus, les lire dans la base ou dans un produit :
+`curl -s http://127.0.0.1/api/v1/products?limit=50 | grep -o '/uploads/[^"]*'`.
 
 ## 6. Reverse proxy nginx
 
@@ -155,7 +176,7 @@ sudo certbot renew --dry-run
 curl -s http://3.90.18.137/api/v1/status     # {"status":"ok",...}
 curl -sI http://3.90.18.137/ | head -1       # HTTP/1.1 200 OK
 docker compose ps                            # 2 services healthy
-docker compose exec api ls -1 /app/uploads | wc -l   # les photos sont bien là
+docker compose exec backend ls -1 /app/uploads | wc -l   # les photos sont bien là
 curl -sI http://3.90.18.137/uploads/<fichier>.jpg
 ```
 
@@ -173,10 +194,10 @@ Le volume n'est pas recréé : les images produits sont conservées.
 
 ```bash
 docker compose ps                 # état
-docker compose logs -f api        # logs API
-docker compose logs -f web        # logs Next.js
+docker compose logs -f backend        # logs API
+docker compose logs -f frontend        # logs Next.js
 docker compose restart api        # redémarrer l'API seule
-docker compose exec api npx prisma migrate status
+docker compose exec backend npx prisma migrate status
 sudo tail -f /var/log/nginx/dkmarket.error.log
 ```
 
@@ -198,7 +219,7 @@ docker run --rm -v dkmarket_uploads:/data:ro -v "$PWD/backup":/backup \
 
 | Symptôme | Cause probable | Correction |
 |---|---|---|
-| `502 Bad Gateway` | backend `unhealthy` (Neon injoignable) | `docker compose logs api` |
+| `502 Bad Gateway` | backend `unhealthy` (Neon injoignable) | `docker compose logs backend` |
 | Produits sans photo | volume vide | `bash deploy/migrate-uploads.sh` |
 | Site accessible en `:3001` mais pas en `:80` | nginx absent | `sudo bash deploy/setup-nginx.sh` |
 | `nginx -t` échoue « duplicate default server » | site par défaut encore activé | `sudo rm /etc/nginx/sites-enabled/default` |
@@ -222,10 +243,10 @@ confirme la commande que lorsque les fonds sont réellement réceptionnés.
 4. Dans `backend/.env` sur l'instance : `PAYMENT_MODE=live`, `WAVE_API_KEY`,
    `WAVE_WEBHOOK_SECRET` — champs obligatoires, l'app refuse de démarrer sans
    eux en production.
-5. `docker compose up -d --force-recreate api`, puis tester un paiement réel à
+5. `docker compose up -d --force-recreate backend`, puis tester un paiement réel à
    petit montant (les URLs de retour sont construites depuis `CLIENT_URL`, donc
    `CLIENT_URL` doit être l'URL publique en HTTPS).
-6. Contrôler `docker compose logs -f api` : le statut « Payée » ne doit apparaître
+6. Contrôler `docker compose logs -f backend` : le statut « Payée » ne doit apparaître
    qu'après retour du webhook.
 
 > En `live`, seuls les moyens réellement intégrés sont proposés aux acheteurs
