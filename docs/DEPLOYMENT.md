@@ -46,8 +46,8 @@ Points importants :
 | Champ | Valeur |
 |---|---|
 | AMI | Ubuntu Server 24.04 LTS (64 bits) |
-| Type | `t3.small` (2 Go suffisent ; `t3.micro` est juste) |
-| Stockage | EBS `gp3`, 30 Go |
+| Type | `t3.micro` (1 Go RAM) — suffisant pour **executer** la stack, **pas pour la construire** (§9b) |
+| Stockage | EBS `gp3`, 10 Go minimum (30 Go si vous voulez pouvoir builder sur place) |
 | Groupe de sécurité | Entrant : TCP 22 (ton IP), TCP 80 (`0.0.0.0/0`), TCP 443 (`0.0.0.0/0`) |
 | Paire de clés | clé EC2 existante ou nouvelle (`.pem`) |
 
@@ -58,6 +58,16 @@ devient invalide.
 ```
 Elastic IP  ──▶ 3.90.18.137
 ```
+
+** Coût** : depuis le 1ᵉʳ février 2024, AWS facture $0,005/h (~3,60 $/mois) pour
+**toute** IPv4 publique, associée ou non. Ce n'est donc pas gratuit, mais
+**basculer sur une Elastic IP ne coûte rien de plus** : l'instance consomme déjà
+une IPv4 publique, et l'ancienne est libérée automatiquement quand l'Elastic IP
+est associée. Le seul gaspillage possible est une **Elastic IP allouée mais non
+associée** — elle continue d'être facturée, il faut la *Release*.
+
+Vérifier : `EC2 → Network & Security → Elastic IPs`. Si l'adresse de l'instance
+y apparaît avec l'instance associée, c'est déjà une Elastic IP.
 
 ## 2. Préparer l'instance
 
