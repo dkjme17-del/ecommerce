@@ -47,7 +47,7 @@ Points importants :
 |---|---|
 | AMI | Ubuntu Server 24.04 LTS (64 bits) |
 | Type | `t3.small` (2 Go suffisent ; `t3.micro` est juste) |
-| Stockage | EBS `gp3`, 20 Go |
+| Stockage | EBS `gp3`, 30 Go |
 | Groupe de sécurité | Entrant : TCP 22 (ton IP), TCP 80 (`0.0.0.0/0`), TCP 443 (`0.0.0.0/0`) |
 | Paire de clés | clé EC2 existante ou nouvelle (`.pem`) |
 
@@ -182,6 +182,8 @@ curl -sI http://3.90.18.137/uploads/<fichier>.jpg
 
 ## 9. Mettre à jour après un `git push`
 
+### 9a. Si l'instance a assez de RAM (>= 4 Go)
+
 ```bash
 cd ~/projet_ecommerce
 scp -r deploy backend/.env ubuntu@3.90.18.137:/home/ubuntu/projet_ecommerce/
@@ -189,6 +191,51 @@ ssh ubuntu@3.90.18.137 'cd ~/projet_ecommerce && git pull && docker compose up -
 ```
 
 Le volume n'est pas recréé : les images produits sont conservées.
+
+### 9b. Si l'instance est petite (2 Go ou moins) — le cas de t3.micro
+
+**Ne lancez pas `docker compose build` sur l'instance.** Le build Next.js demande
+~1,5 Go de RAM ; sur une instance de 1 Go il est tué par l'OOM killer, et il mange
+1 à 2 Go de disque pendant la construction. Construisez sur votre machine et
+transférez les images :
+
+```powershell
+# Sur le poste de développement (Docker Desktop)
+cd projet_ecommerce
+docker compose build
+docker save projet_ecommerce-backend:latest projet_ecommerce-frontend:latest `
+  | gzip > dkmarket-images.tar.gz
+scp dkmarket-images.tar.gz ubuntu@3.90.18.137:/home/ubuntu/
+```
+
+```bash
+# Sur l'instance
+gunzip -c ~/dkmarket-images.tar.gz | docker load
+cd ~/projet_ecommerce && docker compose up -d    # pas de --build
+```
+
+```powershell
+# Nettoyage
+Remove-Item dkmarket-images.tar.gz
+```
+
+Si l'instance n'a presque plus de disque, gagner de la place avant :
+
+```bash
+docker builder prune -af          # cache de construction (~700 Mo)
+docker image prune -a             # images non utilisees
+docker system df                  # verifier
+```
+
+### 9c. Mettre à jour le code sans reconstruire
+
+Quand seul le code du backend change et que le build est impossible sur
+l'instance, le montage du volume peut être rejoué a partir du dossier `uploads`
+present sur l'hote :
+
+```bash
+bash deploy/restore-uploads.sh /home/ubuntu/uploads-restore
+```
 
 ## 10. Exploitation courante
 
