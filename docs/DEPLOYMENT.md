@@ -1,225 +1,245 @@
-# Guide de déploiement — serveur Ubuntu 22.04 / 24.04
+# Guide de déploiement — AWS EC2 + Docker
 
-Objectif : déployer la marketplace sur un VPS (Hetzner, OVH, DigitalOcean — ~2 vCPU / 4 Go RAM).
+Cible : **une** instance EC2 Ubuntu 24.04 qui héberge toute l'application sous
+Docker Compose. Un seul point d'entrée public : le port 80 de l'instance.
 
-## 1. Préparation du serveur
+> Ce guide remplace l'ancienne procédure « VPS + systemd + PM2 + Node natif ».
+> Les services systemd `ecommerce-api` / `ecommerce-web`, le fichier
+> `ecosystem.config.cjs` et le script `deploy.sh` ne sont plus utilisés : tout
+> passe par `docker compose`.
+
+## 0. Architecture
+
+```
+Internet
+   │  TCP 80 (et 443 si HTTPS)
+   ▼
+┌──────────────────────── instance EC2 (Ubuntu 24.04) ───────────────────────┐
+│                                                                            │
+│   nginx  ── reverse proxy ──▶ 127.0.0.1:3001                               │
+│                                    │                                       │
+│                        ┌───────────┴────────────┐                          │
+│                        │  réseau Docker         │                          │
+│                        │                        │                          │
+│              dkmarket-web (Next.js)      dkmarket-api (Express)            │
+│              port 3000, non publié      port 4000, non publié            │
+│                        │         │                  │                     │
+│                        │ rewrites /api, /uploads   │                     │
+│                        └─────────┴──────────────────┘                     │
+│                                  │                    │                    │
+│                     volume dkmarket_uploads      Neon PostgreSQL            │
+│                     (/app/uploads)             (base externalisée)         │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+Points importants :
+
+- **Seul nginx est joignable** depuis Internet. Les ports 3001 et 4000 ne sont
+  pas publiés par Docker ; le frontend n'est lié qu'à la boucle locale.
+- **Les images produits vivent dans le volume `dkmarket_uploads`.** Elles
+  survivent à un `up --build`, un redémarrage ou un recréage de conteneur.
+- **La base est externalisée** (Neon). L'instance n'a pas de PostgreSQL ;
+  `DATABASE_URL` pointe vers l'extérieur.
+
+## 1. Provisionner l'instance (console AWS)
+
+| Champ | Valeur |
+|---|---|
+| AMI | Ubuntu Server 24.04 LTS (64 bits) |
+| Type | `t3.small` (2 Go suffisent ; `t3.micro` est juste) |
+| Stockage | EBS `gp3`, 20 Go |
+| Groupe de sécurité | Entrant : TCP 22 (ton IP), TCP 80 (`0.0.0.0/0`), TCP 443 (`0.0.0.0/0`) |
+| Paire de clés | clé EC2 existante ou nouvelle (`.pem`) |
+
+** elastic IP (à faire tout de suite)** : Associate Elastic IP. Sans elle,
+l'instance arrêtée puis redémarrée reçoit une nouvelle IP et ton URL de rendu
+devient invalide.
+
+```
+Elastic IP  ──▶ 3.90.18.137
+```
+
+## 2. Préparer l'instance
 
 ```bash
+ssh -i "chemin/vers/cle.pem" ubuntu@3.90.18.137
+
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y nginx git curl ufw
-sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
+sudo apt install -y ca-certificates curl git
+
+# Docker + plugin compose (version officielle pour Ubuntu)
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin \
+  docker-compose-plugin
+sudo usermod -aG docker ubuntu && newgrp docker   <<< "reconnect la session SSH"
+
+docker version && docker compose version
 ```
 
-Installer Node.js 22+ (via NodeSource) :
+## 3. Transférer le code
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-sudo corepack enable            # yarn/pnpm au besoin
+# Sur ta machine
+scp -r deploy ubuntu@3.90.18.137:/home/ubuntu/projet_ecommerce/
+scp backend/.env ubuntu@3.90.18.137:/home/ubuntu/projet_ecommerce/backend/.env
+scp frontend/.env.local ubuntu@3.90.18.137:/home/ubuntu/projet_ecommerce/frontend/.env.local
 ```
 
-Installer PostgreSQL :
+> `backend/.env` n'est **pas** versionné : il doit être copié à la main, avec
+> `DATABASE_URL` (Neon), `JWT_SECRET` long et `CLIENT_URL=http://3.90.18.137`.
+
+## 4. Démarrer la stack
 
 ```bash
-sudo apt install -y postgresql postgresql-contrib
-sudo -u postgres psql -c "CREATE USER ecommerce WITH PASSWORD 'STRONG_PASSWORD';"
-sudo -u postgres psql -c "CREATE DATABASE ecommerce OWNER ecommerce;"
-sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"   # recherche
+cd ~/projet_ecommerce
+docker compose up -d --build
+
+docker compose ps           # les deux services doivent être "healthy"
+docker compose logs -f api
 ```
 
-## 2. Mise en place du code
+Le `CMD` du backend enchaîne `prisma migrate deploy` puis le serveur : les
+migrations sont donc appliquées automatiquement à chaque démarrage.
+
+## 5. Une seule fois : récupérer les images déjà envoyées
+
+Si des vendeurs ont déjà envoyé des photos **avant** la mise en place du volume,
+elles résident dans la couche inscriptible du conteneur. Il faut les copier
+dans le volume avant de le recréer :
 
 ```bash
-sudo mkdir -p /var/www/ecommerce && sudo chown "$USER":"$USER" /var/www/ecommerce
-cd /var/www/ecommerce
-git clone <votre-repo> .
-# ou copier le dossier projet_ecommerce
+bash deploy/migrate-uploads.sh
 ```
 
-### Backend
+Le script compare le nombre de fichiers avant/après et refuse de continuer si
+la copie est incomplète. Les fichiers restent aussi dans `/tmp/dkmarket-uploads-seed`
+en secours.
+
+## 6. Reverse proxy nginx
 
 ```bash
-cd backend
-npm install --omit=dev
-cp .env.example .env
-nano .env   # NODE_ENV=production, DATABASE_URL, JWT_SECRET fort, PAYMENT_MODE=sandbox
-npx prisma generate
-npx prisma migrate deploy
-npm run seed
+sudo bash deploy/setup-nginx.sh
 ```
 
-Service systemd `sudo nano /etc/systemd/system/ecommerce-api.service` :
+Le script installe nginx, dépose la config, désactive le site par défaut
+d'Ubuntu (il écouterait le port 80 en doublon), teste avec `nginx -t` puis
+recharge. Le site devient accessible sur **`http://3.90.18.137/`**.
 
-```ini
-[Unit]
-Description=Marketplace API
-After=network.target
+Dans la console AWS, **retirer ensuite la règle TCP 3001** du groupe de sécurité :
+plus rien ne l'utilise, et le port n'est plus joignable même si Docker le mappe.
 
-[Service]
-Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/ecommerce/backend
-ExecStart=/usr/bin/node src/server.js
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
+## 7. Nom de domaine et HTTPS
 
-[Install]
-WantedBy=multi-user.target
-```
+Let's Encrypt exige un nom de domaine (un certificat sur IP brute n'est pas
+accordé par Let's Encrypt).
 
 ```bash
-sudo chown -R www-data:www-data /var/www/ecommerce/backend/uploads
-sudo systemctl daemon-reload && sudo systemctl enable --now ecommerce-api
-```
-
-### Frontend
-
-```bash
-cd ../frontend
-npm install
-nano .env.production   # API_URL=http://localhost:4000 (optionnel, c'est la valeur par défaut)
-npm run build
-```
-
-> **Important** : `API_URL` doit être l'**origine** du backend, *sans* `/api/v1`
-> (`http://localhost:4000`, les deux apps étant sur le même serveur). Les pages
-> rendues côté serveur appellent l'API directement ; le navigateur, lui, passe par
-> nginx qui route `/api/*` vers le backend. Ne créez pas de `.env.local` sur le
-> serveur (il aurait priorité sur `.env.production` dans Next.js).
-
-Service systemd `sudo nano /etc/systemd/system/ecommerce-web.service` :
-
-```ini
-[Unit]
-Description=Marketplace Web
-After=network.target ecommerce-api.service
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/ecommerce/frontend
-ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl daemon-reload && sudo systemctl enable --now ecommerce-web
-```
-
-## 3. Reverse proxy nginx
-
-`sudo nano /etc/nginx/sites-available/ecommerce` :
-
-```nginx
-server {
-    listen 80;
-    server_name shop.example.com;
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:4000/api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 120s;
-        client_max_body_size 10M;
-    }
-
-    location /uploads/ {
-        alias /var/www/ecommerce/backend/uploads/;
-        add_header Cache-Control "public, max-age=86400, immutable";
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
-
-# En-têtes de sécurité globaux (avant la fin de la config, dans server { } :
-# add_header X-Frame-Options DENY always;
-# add_header X-Content-Type-Options nosniff always;
-# add_header Referrer-Policy strict-origin-when-cross-origin always;
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/ecommerce /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-## 4. HTTPS (Let's Encrypt)
-
-```bash
+# 1. Dans la console AWS : Route 53 (ou votre registrar) → A record
+#    shop.exemple.com  →  3.90.18.137
+# 2. Sur l'instance, une fois la propagation faite :
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d shop.example.com
+sudo certbot --nginx -d shop.exemple.com
+# 3. Ouvrir le port 443 dans le groupe de sécurité
+sudo certbot renew --dry-run
 ```
 
-## 5. Mise à jour du code
+## 8. Vérifications
 
 ```bash
-cd /var/www/ecommerce
-git pull
-cd backend && npm install --omit=dev && npx prisma migrate deploy && sudo systemctl restart ecommerce-api
-cd ../frontend && npm install && npm run build && sudo systemctl restart ecommerce-web
+curl -s http://3.90.18.137/api/v1/status     # {"status":"ok",...}
+curl -sI http://3.90.18.137/ | head -1       # HTTP/1.1 200 OK
+docker compose ps                            # 2 services healthy
+docker compose exec api ls -1 /app/uploads | wc -l   # les photos sont bien là
+curl -sI http://3.90.18.137/uploads/<fichier>.jpg
 ```
 
-Créer un script `deploy.sh` pour automatiser ces étapes et l'ajouter à un cron quotidien si souhaité.
-
-## 6. Vérification post-déploiement
+## 9. Mettre à jour après un `git push`
 
 ```bash
-curl -s https://shop.example.com/api/v1/status        # -> {"status":"ok"}
-curl -s https://shop.example.com/ | head -c 200        # HTML du site
-sudo journalctl -u ecommerce-api -n 50 --no-pager      # logs API
-sudo journalctl -u ecommerce-web -n 50 --no-pager      # logs Next.js
+cd ~/projet_ecommerce
+scp -r deploy backend/.env ubuntu@3.90.18.137:/home/ubuntu/projet_ecommerce/
+ssh ubuntu@3.90.18.137 'cd ~/projet_ecommerce && git pull && docker compose up -d --build'
 ```
 
-- Le seed initial (`npm run seed`) a créé les comptes démo — **changez ou supprimez**
-  `admin@demo.com`, `seller@demo.com` et `client@demo.com` avant mise en production
-  réelle (ou n'exécutez pas le seed sur le serveur de production).
+Le volume n'est pas recréé : les images produits sont conservées.
 
-## 7. Paiements en production
+## 10. Exploitation courante
 
-L'intégration **Wave live** (Checkout API) est implémentée : l'acheteur est redirigé vers Wave,
-qui notifie le serveur par webhook signé (HMAC-SHA256) et ne confirme la commande que lorsque les
-fonds sont réellement réceptionnés.
+```bash
+docker compose ps                 # état
+docker compose logs -f api        # logs API
+docker compose logs -f web        # logs Next.js
+docker compose restart api        # redémarrer l'API seule
+docker compose exec api npx prisma migrate status
+sudo tail -f /var/log/nginx/dkmarket.error.log
+```
+
+Les logs Docker sont plafonnés (`max-size: 10m`, `max-file: 3`) : le disque EBS
+ne peut pas saturer. Les voir : `docker inspect dkmarket-api | grep -A3 LogPath`.
+
+## 11. Sauvegardes
+
+La base est sur Neon : utiliser **PITR** (Point-In-Time Recovery) ou
+`pg_dump` planifié, ce n'est pas le rôle de l'instance EC2. Les photos produits
+sont dans le volume Docker : les sauvegarder explicitement.
+
+```bash
+docker run --rm -v dkmarket_uploads:/data:ro -v "$PWD/backup":/backup \
+  alpine:3 tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
+
+## 12. Dépannage
+
+| Symptôme | Cause probable | Correction |
+|---|---|---|
+| `502 Bad Gateway` | backend `unhealthy` (Neon injoignable) | `docker compose logs api` |
+| Produits sans photo | volume vide | `bash deploy/migrate-uploads.sh` |
+| Site accessible en `:3001` mais pas en `:80` | nginx absent | `sudo bash deploy/setup-nginx.sh` |
+| `nginx -t` échoue « duplicate default server » | site par défaut encore activé | `sudo rm /etc/nginx/sites-enabled/default` |
+| IP changed après un arrêt | pas d'Elastic IP | associer une Elastic IP |
+
+## 13. Paiements en production
+
+L'intégration **Wave live** (Checkout API) est implémentée : l'acheteur est
+redirigé vers Wave, qui notifie le serveur par webhook signé (HMAC-SHA256) et ne
+confirme la commande que lorsque les fonds sont réellement réceptionnés.
 
 ### Checklist de mise en service Wave
 
-1. Créer un compte marchand **Wave Business** sur business.wave.com et suivre l'onboarding
-   (pièces d'identité + numéro de portable marchand). Wave ne propose **pas de sandbox** : toutes
-   les clés testées touchent le portefeuille marchand — d'où un test initial à petit montant.
-2. Générer une **clé API** (`WAVE_API_KEY`, format `wave_sn_prod_…`) dans le portail développeur.
-3. Exposer le webhook `POST https://votre-domaine/api/v1/payments/webhook/momo` en HTTPS et
-   l'enregistrer chez Wave ; Wave fournit alors un **webhook secret** (`WAVE_WEBHOOK_SECRET`).
-4. Dans `backend/.env` du serveur : `PAYMENT_MODE=live`, `WAVE_API_KEY`, `WAVE_WEBHOOK_SECRET`.
-   Les champs vides sont **obligatoires** (l'app refuse de démarrer sans eux en production).
-5. Redémarrer le service API (`sudo systemctl restart ecommerce-api`) puis tester un paiement
-   réel à petit montant (les URLs de retour sont construites depuis `CLIENT_URL`).
-6. Vérifier les logs (`journalctl -u ecommerce-api -f`) et confirmer que le statut de la commande
-   passe à « Payée » uniquement après retour du webhook.
+1. Compte marchand **Wave Business** sur business.wave.com (pièces d'identité +
+   numéro de portable marchand). Wave ne propose **pas de sandbox** : les clés
+   testées touchent le portefeuille marchand — d'où un test à petit montant.
+2. Générer une **clé API** (`WAVE_API_KEY`, format `wave_sn_prod_…`).
+3. Exposer le webhook `POST https://votre-domaine/api/v1/payments/webhook/momo`
+   en HTTPS et l'enregistrer chez Wave ; Wave fournit le **webhook secret**
+   (`WAVE_WEBHOOK_SECRET`).
+4. Dans `backend/.env` sur l'instance : `PAYMENT_MODE=live`, `WAVE_API_KEY`,
+   `WAVE_WEBHOOK_SECRET` — champs obligatoires, l'app refuse de démarrer sans
+   eux en production.
+5. `docker compose up -d --force-recreate api`, puis tester un paiement réel à
+   petit montant (les URLs de retour sont construites depuis `CLIENT_URL`, donc
+   `CLIENT_URL` doit être l'URL publique en HTTPS).
+6. Contrôler `docker compose logs -f api` : le statut « Payée » ne doit apparaître
+   qu'après retour du webhook.
 
-> En `live`, seuls les moyens réellement intégrés sont proposés aux acheteurs (Wave aujourd'hui ;
-> Orange Money et MTN MoMo affichés « Bientôt »). Les **payouts** vendeurs restent en attente
-> (`PENDING`) en mode live : le transfert réel (Wave Payout à venir) et le versement manuel sont
-> à traiter depuis l'espace admin.
+> En `live`, seuls les moyens réellement intégrés sont proposés aux acheteurs
+> (Wave aujourd'hui ; Orange Money et MTN MoMo affichés « Bientôt »). Les
+> **payouts** vendeurs restent `PENDING` en mode live : à traiter depuis l'espace
+> admin.
 
-## 8. Bonnes pratiques de production
+## 14. Sécurité — contrôles de fin de semestre
 
-- Vérifier quotidiennement les sauvegardes PostgreSQL (`pg_dump` en cron).
-- Surveiller avec `journalctl -u ecommerce-api -f` et un service type UptimeRobot.
-- Restreindre les uploads (taille/type sont déjà contrôlés) et rouler les `JWT_SECRET`.
-- Configurer un reverse cache (Redis) si le catalogue grossit.
-- **Mise à jour Next.js** : `npm audit` signale de temps en temps des avis sur la
-  chaîne PostCSS embarquée dans Next (dépendance de build, sans impact sur le runtime
-  servi par `next start`). Mettre à jour Next régulièrement (`npm i next@latest`) dans
-  le frontend.
+- [ ] `backend/.env` absent du dépôt, `JWT_SECRET` régénéré (48 octets+)
+- [ ] Comptes de démonstration (`admin@demo.com`, `seller@demo.com`,
+      `client@demo.com`) supprimés ou mot de passe changé
+- [ ] Groupe de sécurité : 22 restreint à ton IP, 80/443 ouverts, **3001 retiré**
+- [ ] `ufw` actif si utilisé par nginx (`sudo ufw status`)
+- [ ] HTTPS actif (le paiement Wave l'exige en production)
+- [ ] Elastic IP associée
+- [ ] Sauvegarde des photos produits en place (`docker volume`)

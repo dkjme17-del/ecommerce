@@ -1,0 +1,84 @@
+# DKmarket — stack de production (instance AWS EC2, Ubuntu 24.04)
+#
+# Topologie d'exposition :
+#   Internet -> nginx (hôte, port 80/443) -> 127.0.0.1:3001 -> conteneur frontend
+#   Le frontend Next.js relaie /api et /uploads vers http://backend:4000 via le
+#   réseau Docker interne : le backend n'est donc jamais publié sur l'hôte.
+#
+# Le site est accessible sur le port 80 de l'instance, pas sur 3001.
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+    container_name: dkmarket-api
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      UPLOAD_DIR: /app/uploads
+    expose:
+      - "4000"
+    volumes:
+      # Persistance des images produits : sans ce volume, un `up --build`
+      # ou un redemarrage de l'instance perd tous les fichiers envoyes par
+      # les vendeurs. `backend/.dockerignore` exclut `uploads` de l'image.
+      - uploads_data:/app/uploads
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/v1/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Figé au build : c'est l'origine vers laquelle next.config.mjs
+        # proxifie /api et /uploads. Doit rester le nom de service Docker.
+        API_URL: http://backend:4000
+    container_name: dkmarket-web
+    environment:
+      API_URL: http://backend:4000
+      NEXT_TELEMETRY_DISABLED: "1"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    ports:
+      # Boucle locale uniquement : nginx est le seul point d'entree public.
+      # Pour revenir a un acces direct http://<ip>:3001, mettre "3001:3000".
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+    name: dkmarket_uploads
