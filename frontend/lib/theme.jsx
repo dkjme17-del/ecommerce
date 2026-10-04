@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'kirene-theme';
+const STORAGE_KEY = 'dkmarket-theme';
 const ThemeContext = createContext(null);
 
 // Script injecté dans <head> : applique le thème avant le premier rendu

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../lib/auth-context';
 import { apiGet, apiPost } from '../../../lib/api';
 import { formatMoney, formatDate } from '../../../lib/format';
@@ -12,12 +12,14 @@ import ProductImage from '../../../components/ProductImage';
 
 const STEPS = ['PENDING', 'PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
 
-export default function OrderDetailPage() {
+function OrderDetailPage() {
   const { id } = useParams();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [polling, setPolling] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,6 +33,32 @@ export default function OrderDetailPage() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [authLoading, user, id, router]);
+
+  useEffect(() => {
+    if (searchParams.get('payment') !== 'success') return;
+    if (order && order.paymentStatus === 'PAID') return;
+    let attempts = 0;
+    const iv = setInterval(async () => {
+      attempts += 1;
+      if (attempts > 6) {
+        clearInterval(iv);
+        setPolling(false);
+        return;
+      }
+      try {
+        const d = await apiGet(`/orders/${id}`, { auth: true });
+        setOrder(d.order);
+        if (d.order.paymentStatus === 'PAID') {
+          clearInterval(iv);
+          setPolling(false);
+        }
+      } catch {
+        /* noop */
+      }
+    }, 5000);
+    setPolling(true);
+    return () => clearInterval(iv);
+  }, [searchParams, order, id]);
 
   async function cancel() {
     try {
@@ -68,6 +96,17 @@ export default function OrderDetailPage() {
         </div>
       </div>
       <p className="text-sm text-ink-muted">Passée le {formatDate(order.createdAt)}</p>
+      {order.transactionRef && (
+        <p className="mt-1 text-xs text-ink-faint">
+          Numéro de paiement : <span className="font-mono font-medium text-ink-muted">{order.transactionRef}</span>
+        </p>
+      )}
+      {polling && (
+        <p className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+          Vérification du paiement…
+        </p>
+      )}
 
       {/* Timeline */}
       <div className="card mt-6 p-5">
@@ -148,5 +187,13 @@ export default function OrderDetailPage() {
 
       <FormError error={error} />
     </div>
+  );
+}
+
+export default function OrderDetail() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <OrderDetailPage />
+    </Suspense>
   );
 }

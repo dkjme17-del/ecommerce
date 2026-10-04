@@ -15,7 +15,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     apiGet('/config')
-      .then((d) => setCommissionPercent(Math.round((d.config?.commissionRate || 0.05) * 100)))
+      .then((d) => setCommissionPercent(Math.round((d.config?.commissionRate || 0.01) * 100)))
       .catch(() => {});
     if (!user) return;
     apiGet('/admin/stats', { auth: true }).then(setData).catch(() => {});

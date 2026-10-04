@@ -3,15 +3,15 @@ import { serverFetch } from '../lib/server';
 
 export default async function Footer() {
   const configData = await serverFetch('/api/v1/config').catch(() => ({ config: {} }));
-  const commissionPercent = Math.round((configData.config?.commissionRate || 0.05) * 100);
+  const commissionPercent = Math.round((configData.config?.commissionRate || 0.01) * 100);
   return (
     <footer className="mt-16 border-t border-line bg-paper-muted">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <p className="font-display text-2xl font-bold text-brand-600">Kirene</p>
+            <p className="font-display text-2xl font-bold text-brand-600">DKmarket</p>
             <p className="mt-3 max-w-xs text-sm leading-6 text-ink-muted">
-              Le marketplace sénégalais qui relie les boutiques locales aux acheteurs — paiement Wave,
+              Le marketplace qui relie les boutiques locales aux acheteurs — paiement Wave,
               Orange Money et MTN MoMo, livraison partout.
             </p>
           </div>
@@ -41,7 +41,7 @@ export default async function Footer() {
       </div>
       <div className="border-t border-line py-4">
         <p className="mx-auto max-w-7xl px-4 text-center text-xs text-ink-faint sm:px-6 lg:px-8">
-          © {new Date().getFullYear()} Kirene — Commission de {commissionPercent} % par vente. Conçu à Dakar.
+          © {new Date().getFullYear()} DKmarket — Commission de {commissionPercent} % par vente.
         </p>
       </div>
     </footer>

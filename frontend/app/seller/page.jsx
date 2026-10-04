@@ -23,7 +23,8 @@ export default function SellerDashboard() {
   const s = data.stats;
   const cards = [
     { label: 'Revenus totaux (net)', value: formatMoney(s.revenue) },
-    { label: 'Solde à recevoir', value: formatMoney(s.balance) },
+    { label: 'Solde disponible', value: formatMoney(s.balance) },
+    { label: 'En attente (livraison)', value: formatMoney(s.pendingBalance || 0) },
     { label: 'Ventes', value: s.salesCount },
     { label: 'Produits actifs', value: s.productsCount },
     { label: 'Stock faible (<5)', value: s.lowStock },
@@ -39,7 +40,7 @@ export default function SellerDashboard() {
         Commission plateforme : {Math.round(s.commissionRate * 100)} % par vente.
       </p>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
         {cards.map((c) => (
           <div key={c.label} className="card p-4">
             <p className="text-lg font-bold text-ink-strong">{c.value}</p>

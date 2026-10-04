@@ -33,7 +33,7 @@ export default function SellerPayouts() {
       <h1 className="mb-2 text-2xl font-bold text-ink-strong">Mes versements</h1>
       <p className="mb-5 text-sm text-ink-muted">
         Total versé : <strong>{formatMoney(totalPaid)}</strong> — vos revenus nets (après
-        commission de {Math.round((config?.commissionRate || 0.05) * 100)} %) sont versés
+        commission de {Math.round((config?.commissionRate || 0.01) * 100)} %) sont versés
         automatiquement sur votre compte mobile money dès qu’ils atteignent{' '}
         {formatMoney(config?.minPayoutAmount ?? 5000)}.
       </p>

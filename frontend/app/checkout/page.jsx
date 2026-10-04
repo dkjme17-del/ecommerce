@@ -15,6 +15,12 @@ const METHODS = [
   { value: 'MTN_MOMO', label: 'MTN MoMo', desc: '*126# via téléphone' },
 ];
 
+const GENIUSPAY_METHOD = {
+  value: 'GENIUSPAY',
+  label: 'Paiement sécurisé GeniusPay',
+  desc: 'Wave · Orange Money · MTN MoMo · Moov Money · Carte bancaire',
+};
+
 export default function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -28,7 +34,12 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     apiGet('/config')
-      .then((d) => setConfig(d.config))
+      .then((d) => {
+        setConfig(d.config);
+        if (d.config?.paymentProvider === 'geniuspay') {
+          setForm((f) => ({ ...f, method: 'GENIUSPAY' }));
+        }
+      })
       .catch(() => {});
     if (authLoading) return;
     if (!user) {
@@ -104,9 +115,9 @@ export default function CheckoutPage() {
           Confirmez le paiement {paymentLabel(form.method)} sur votre téléphone.
         </p>
         <p className="mt-4 rounded-lg bg-amber-50 px-4 py-2 text-xs text-amber-700">
-          {config?.paymentMode === 'sandbox'
+          {config?.paymentProvider === 'sandbox'
             ? 'Mode démonstration : le paiement sandbox est confirmé automatiquement.'
-            : 'Confirmez la réception du paiement sur votre téléphone.'}
+            : 'Après validation, vous serez redirigé vers la page du paiement sécurisé.'}
         </p>
       </div>
     );
@@ -154,14 +165,15 @@ export default function CheckoutPage() {
 
             <div className="card p-5">
               <h2 className="mb-4 font-semibold text-ink-strong">Mode de paiement</h2>
-              {config?.paymentMode === 'live' && (
+              {config?.paymentProvider === 'geniuspay' && (
                 <p className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 dark:bg-brand-500/15">
-                  Paiements réels : seuls les moyens intégrés au lancement sont proposés.
+                  Paiement sécurisé : payez par Wave, Orange Money, MTN MoMo, Moov ou carte —
+                  sans quitter la boutique.
                 </p>
               )}
               <div className="space-y-3">
-                {METHODS.map((m) => {
-                  const disabled = config?.paymentMode === 'live' && m.value !== 'WAVE';
+                {(config?.paymentProvider === 'geniuspay' ? [GENIUSPAY_METHOD] : METHODS).map((m) => {
+                  const disabled = config?.paymentProvider === 'wave' && config?.paymentMode === 'live' && m.value !== 'WAVE';
                   return (
                     <label key={m.value}
                       className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
@@ -206,7 +218,7 @@ export default function CheckoutPage() {
               <span>{formatMoney(total)}</span>
             </div>
             <p className="mt-2 text-xs text-ink-faint">
-              Commission plateforme de {Math.round((config?.commissionRate || 0.05) * 100)} %,
+              Commission plateforme de {Math.round((config?.commissionRate || 0.01) * 100)} %,
               déduite du vendeur.
             </p>
             <button type="submit" className="btn-primary mt-4 w-full">

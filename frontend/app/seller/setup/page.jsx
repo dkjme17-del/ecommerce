@@ -22,6 +22,7 @@ export default function SellerSetup() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -44,6 +45,26 @@ export default function SellerSetup() {
       })
       .finally(() => setLoading(false));
   }, [user]);
+
+  async function uploadLogo(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    setSuccess('');
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const data = await apiPost('/upload/image', fd, { auth: true, formData: true });
+      setForm((f) => ({ ...f, logo: data.url }));
+      setSuccess('Logo importé — cliquez sur « Mettre à jour » pour l’enregistrer.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -121,7 +142,36 @@ export default function SellerSetup() {
           />
         </div>
         <div>
-          <label className="label">URL du logo</label>
+          <label className="label">Logo</label>
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-paper-sunken">
+              {form.logo ? (
+                <img
+                  src={form.logo}
+                  alt="Logo actuel"
+                  className="h-full w-full object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span className="text-xs text-ink-faint">Aucun</span>
+              )}
+            </div>
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={uploadingLogo}
+                onChange={uploadLogo}
+                className="input disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <p className="mt-1 text-xs text-ink-muted">PNG, JPG ou WEBP.</p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label className="label">URL du logo (optionnel)</label>
           <input
             className="input"
             placeholder="/uploads/logo.jpg"
@@ -133,7 +183,7 @@ export default function SellerSetup() {
         <div className="rounded-xl bg-paper-muted p-4">
           <p className="font-semibold text-ink-strong">Versement de vos revenus (payouts)</p>
           <p className="mt-1 text-sm text-ink-muted">
-            Votre solde net (après commission de {Math.round((config?.commissionRate || 0.05) * 100)}{' '}
+            Votre solde net (après commission de {Math.round((config?.commissionRate || 0.01) * 100)}{' '}
             %) est versé automatiquement sur ce compte à partir de{' '}
             {formatMoney(config?.minPayoutAmount ?? 5000)}.
           </p>
@@ -154,7 +204,7 @@ export default function SellerSetup() {
               <label className="label">Numéro</label>
               <input
                 className="input"
-                placeholder="+221771234567"
+                placeholder="Votre numéro"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />

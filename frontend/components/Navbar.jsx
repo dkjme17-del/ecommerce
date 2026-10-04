@@ -26,10 +26,7 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
         <Link href="/" className="flex items-baseline gap-2">
           <span className="font-display text-2xl font-bold tracking-tight text-brand-600">
-            Kirene
-          </span>
-          <span className="hidden text-xs font-medium uppercase tracking-[0.2em] text-ink-faint sm:inline">
-            Market
+            DKmarket
           </span>
         </Link>
 

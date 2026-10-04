@@ -32,8 +32,15 @@ export default function AdminPayouts() {
   }, [user]);
 
   async function process(id) {
+    let reference;
+    if (config?.paymentMode === 'live') {
+      reference = window.prompt(
+        'Transfert réel effectué ? Saisissez la référence du versement (Wave/Orange/…) :',
+      );
+      if (!reference) return;
+    }
     try {
-      await apiPost(`/admin/payouts/${id}/process`, {}, { auth: true });
+      await apiPost(`/admin/payouts/${id}/process`, reference ? { reference } : {}, { auth: true });
       load();
     } catch (e) {
       alert(e.message);
@@ -56,6 +63,13 @@ export default function AdminPayouts() {
           Déclencher les payouts automatiques
         </button>
       </div>
+
+      {config?.paymentMode === 'live' && (
+        <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          Mode réel : effectuez le transfert manuellement (Wave/Orange/…), puis cliquez
+          « Traiter » et saisissez la référence du versement. Le solde vendeur sera remis à zéro.
+        </p>
+      )}
 
       {done && (
         <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">

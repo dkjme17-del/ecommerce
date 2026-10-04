@@ -7,6 +7,7 @@ import AddToCart from '../../../components/AddToCart';
 import ReviewForm from '../../../components/ReviewForm';
 import BackButton from '../../../components/BackButton';
 import ProductGallery from '../../../components/ProductGallery';
+import ShareProduct from '../../../components/ShareProduct';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +108,10 @@ export default async function ProductDetailPage({ params }) {
             <AddToCart productId={p.id} slug={p.slug} stock={p.stock} />
           </div>
 
+          <div className="mt-5">
+            <ShareProduct name={p.name} />
+          </div>
+
           <div className="mt-6 grid gap-2.5 rounded-2xl border border-line bg-paper-muted p-4 text-sm text-ink-muted">
             <span className="inline-flex items-center gap-2.5">
               <ReassIcon d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Zm-8.5 4.5V17l8.5 4.5V12" />
@@ -114,7 +119,7 @@ export default async function ProductDetailPage({ params }) {
             </span>
             <span className="inline-flex items-center gap-2.5">
               <ReassIcon d="M12 3v9l6.5 3.5M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18Z" />
-              Livraison rapide partout au Sénégal
+              Livraison rapide partout
             </span>
             <span className="inline-flex items-center gap-2.5">
               <ReassIcon d="M20 13.5 4 21V3l16 7.5-16 7.5L20 6" />

@@ -33,6 +33,7 @@ export function roleLabel(role) {
 }
 
 export const PAYMENT_LABELS = {
+  GENIUSPAY: 'GeniusPay (Wave, Orange Money, MTN MoMo, carte)',
   WAVE: 'Wave',
   ORANGE_MONEY: 'Orange Money',
   MTN_MOMO: 'MTN MoMo',

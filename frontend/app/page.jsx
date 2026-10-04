@@ -15,7 +15,7 @@ export default async function HomePage() {
 
   const products = featuredData.products || [];
   const categories = categoriesData.categories || [];
-  const commissionPercent = Math.round((configData.config?.commissionRate || 0.05) * 100);
+  const commissionPercent = Math.round((configData.config?.commissionRate || 0.01) * 100);
 
   return (
     <div>
@@ -29,10 +29,7 @@ export default async function HomePage() {
 
         <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-16 pt-14 md:grid-cols-[1.15fr_0.85fr] md:items-center md:pb-24 md:pt-20 lg:px-8">
           <Reveal>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-paper/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-100 backdrop-blur">
-              Marketplace sénégalais · Fait à Dakar
-            </span>
-            <h1 className="mt-6 font-display text-4xl font-bold leading-[1.08] tracking-tight text-white md:text-6xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.08] tracking-tight text-white md:text-6xl">
               Achetez la bonne et belle chose,{' '}
               <span className="text-accent-300">simplement.</span>
             </h1>

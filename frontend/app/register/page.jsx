@@ -75,7 +75,7 @@ export default function RegisterPage() {
             <label className="label">Téléphone</label>
             <input
               className="input"
-              placeholder="+221771234567"
+              placeholder="Votre numéro de téléphone"
               value={form.phone}
               onChange={(e) => set('phone', e.target.value)}
               required

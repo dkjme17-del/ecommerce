@@ -19,9 +19,9 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: 'Kirene — Achetez de la bonne et belle chose, simplement',
+  title: 'DKmarket — Achetez de la bonne et belle chose, simplement',
   description:
-    'Kirene est le marketplace sénégalais qui connecte les boutiques locales aux acheteurs, avec paiement Wave, Orange Money et MTN MoMo.',
+    'DKmarket est le marketplace qui connecte les boutiques locales aux acheteurs, avec paiement Wave, Orange Money et MTN MoMo.',
 };
 
 export default function RootLayout({ children }) {

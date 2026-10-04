@@ -73,6 +73,12 @@ export default function SellerOrders() {
                     {formatMoney(it.netAmount)} (commission −{formatMoney(it.commission)})
                   </p>
                   <p className="text-xs text-ink-faint">{formatDateTime(it.createdAt)}</p>
+                  {it.order?.transactionRef && (
+                    <p className="text-xs text-ink-faint">
+                      Numéro de paiement :{' '}
+                      <span className="font-mono font-medium text-ink-muted">{it.order.transactionRef}</span>
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge value={it.status} />
