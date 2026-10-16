@@ -92,7 +92,3 @@ Les comptes démo, la boutique et les produits de démonstration ne sont **cré�
 - [Base de données](docs/DATABASE.md)
 - [Endpoints API](docs/API.md)
 - [Guide de déploiement serveur](docs/DEPLOYMENT.md)
-
-## Licence
-
-À définir selon votre besoin.
