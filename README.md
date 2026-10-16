@@ -94,5 +94,3 @@ Les comptes démo, la boutique et les produits de démonstration ne sont **cré�
 - [Guide de déploiement serveur](docs/DEPLOYMENT.md)
 
 ## Licence
-
-À définir selon votre besoin.
